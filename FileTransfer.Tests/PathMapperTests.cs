@@ -137,7 +137,9 @@ public class PathMapperTests
                 }
             ]);
 
-        var sourcePath = Path.Combine(mapper.SourceRoot, "A1", "nested", "report.txt");
+        // Build a raw relative path with backslashes explicitly. Path.Combine uses the
+        // current OS separator, so it cannot exercise the raw-backslash fallback on Linux.
+        var sourcePath = mapper.SourceRoot + Path.DirectorySeparatorChar + @"A1\nested\report.txt";
         var resolution = mapper.ResolveTargetPathForRoot(sourcePath, mapper.TargetRoots[0]);
 
         Assert.False(resolution.Ignored);
@@ -194,7 +196,9 @@ public class PathMapperTests
                 }
             ]);
 
-        var sourcePath = Path.Combine(mapper.SourceRoot, "A1", "nested", "report.txt");
+        // Build a raw relative path with backslashes explicitly. Path.Combine uses the
+        // current OS separator, so it cannot exercise the raw-backslash fallback on Linux.
+        var sourcePath = mapper.SourceRoot + Path.DirectorySeparatorChar + @"A1\nested\report.txt";
         var resolution = mapper.ResolveTargetPathForRoot(sourcePath, mapper.TargetRoots[0]);
 
         Assert.False(resolution.Ignored);
