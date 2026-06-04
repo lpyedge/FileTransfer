@@ -245,6 +245,9 @@ dotnet build FileTransfer.sln -c Release
 dotnet test FileTransfer.sln -c Release --no-build
 ```
 
+The repository uses Microsoft.Testing.Platform through `global.json`, so CI and local `dotnet test` use the .NET 10 native test runner.
+
+
 Publish release-style binaries:
 
 ```bash

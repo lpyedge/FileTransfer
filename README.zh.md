@@ -233,6 +233,9 @@ dotnet build FileTransfer.sln -c Release
 dotnet test FileTransfer.sln -c Release --no-build
 ```
 
+本倉庫透過 `global.json` 使用 Microsoft.Testing.Platform，因此 CI 與本機 `dotnet test` 會使用 .NET 10 原生測試執行器。
+
+
 ## 非目標與限制
 
 - 不是雙向同步引擎。

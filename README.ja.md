@@ -234,6 +234,9 @@ dotnet build FileTransfer.sln -c Release
 dotnet test FileTransfer.sln -c Release --no-build
 ```
 
+このリポジトリは `global.json` で Microsoft.Testing.Platform を使用します。CI とローカルの `dotnet test` は .NET 10 ネイティブのテストランナーで実行されます。
+
+
 ## 非目標・制限
 
 - 双方向同期エンジンではありません。

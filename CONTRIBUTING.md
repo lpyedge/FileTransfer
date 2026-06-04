@@ -14,6 +14,9 @@ dotnet build -c Release
 dotnet test -c Release --no-build
 ```
 
+Tests run through Microsoft.Testing.Platform via `global.json`. Keep GitHub Actions test commands compatible with the .NET 10 native test runner.
+
+
 ## Pull requests
 
 Before opening a pull request:
