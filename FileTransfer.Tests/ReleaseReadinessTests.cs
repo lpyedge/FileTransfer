@@ -66,7 +66,7 @@ public class ReleaseReadinessTests
         Assert.Contains("<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>", testProject, StringComparison.Ordinal);
         Assert.Contains("Microsoft.Testing.Extensions.TrxReport", testProject, StringComparison.Ordinal);
         Assert.Contains("--report-trx", ci, StringComparison.Ordinal);
-        Assert.Contains("actions/upload-artifact@v6", ci, StringComparison.Ordinal);
+        Assert.Contains("actions/upload-artifact@v7", ci, StringComparison.Ordinal);
         Assert.DoesNotContain("actions/upload-artifact@v4", ci, StringComparison.Ordinal);
         Assert.DoesNotContain("--logger trx", ci, StringComparison.OrdinalIgnoreCase);
     }
@@ -108,7 +108,7 @@ public class ReleaseReadinessTests
         Assert.Contains("--validate --config", workflow, StringComparison.Ordinal);
         Assert.Contains("cp -R examples", workflow, StringComparison.Ordinal);
         Assert.Contains("checksums.txt", workflow, StringComparison.Ordinal);
-        Assert.Contains("actions/upload-artifact@v6", workflow, StringComparison.Ordinal);
+        Assert.Contains("actions/upload-artifact@v7", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("actions/upload-artifact@v4", workflow, StringComparison.Ordinal);
     }
 
