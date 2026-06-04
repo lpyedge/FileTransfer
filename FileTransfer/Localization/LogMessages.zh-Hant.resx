@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AllTargetsUnhealthy" xml:space="preserve"><value>Rule {RuleId}: All target paths are marked unhealthy. Waiting for recovery.</value></data>
+  <data name="ConfigReloadApplied" xml:space="preserve"><value>已套用重新載入的設定。Runtime 數量：{RuntimeCount}</value></data>
+  <data name="ConfigReloadFailed" xml:space="preserve"><value>重新載入設定失敗。</value></data>
+  <data name="ConfigReloadParseFailed" xml:space="preserve"><value>重新載入設定失敗。將繼續使用上一份設定：{Revision}</value></data>
+  <data name="ConfigReloadParsed" xml:space="preserve"><value>設定重新載入解析成功：{Revision}。Runtime 數量：{RuntimeCount}</value></data>
+  <data name="ConfigReloadRejected" xml:space="preserve"><value>重新載入的設定被拒絕。將繼續使用上一份有效設定。</value></data>
+  <data name="ConfigReloadStarted" xml:space="preserve"><value>開始重新載入設定：{Revision}</value></data>
+  <data name="ConfigurationInvalid" xml:space="preserve"><value>設定無效。</value></data>
+  <data name="ConfigurationValid" xml:space="preserve"><value>設定有效。Runtime 數量：{0}</value></data>
+  <data name="CopyDuplicatePending" xml:space="preserve"><value>Concurrent processing for the same file was suppressed. Reprocessing was reserved: {Path}</value></data>
+  <data name="CopyOperation" xml:space="preserve"><value>複製處理</value></data>
+  <data name="CopyQueueFull" xml:space="preserve"><value>Copy queue is full. Registration was deferred; reconciliation or later events will retry: {Path}</value></data>
+  <data name="CopyQueued" xml:space="preserve"><value>Queued for copy: {Event} {Path}</value></data>
+  <data name="CopySourceMissingBefore" xml:space="preserve"><value>Rule {RuleId}: Source does not exist before transfer: {Path}</value></data>
+  <data name="CopySucceeded" xml:space="preserve"><value>Rule {RuleId}: 檔案傳輸完成：{Src} -&gt; {Dst}</value></data>
+  <data name="CopyTimeout" xml:space="preserve"><value>Rule {RuleId}: File transfer timed out: {Path}</value></data>
+  <data name="CopyUnhandledError" xml:space="preserve"><value>Rule {RuleId}: Unhandled error during file transfer: {Path}</value></data>
+  <data name="CopyWorkerStopped" xml:space="preserve"><value>Copy worker stopped: {WorkerId}</value></data>
+  <data name="DefaultRelativeUnsafe" xml:space="preserve"><value>預設相對路徑不安全，已略過：{Path} -&gt; {RelativePath}</value></data>
+  <data name="DeleteDuplicatePending" xml:space="preserve"><value>Concurrent delete processing was suppressed. Reprocessing was reserved: {Path}</value></data>
+  <data name="DeleteEventDisabled" xml:space="preserve"><value>Rule {RuleId}: Delete event skipped because it is disabled: {Path}</value></data>
+  <data name="DeleteEventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Delete event skipped by Ignore=true mapping: {Path}</value></data>
+  <data name="DeleteQueueFull" xml:space="preserve"><value>Delete queue is full. Registration was deferred: {Path}</value></data>
+  <data name="DeleteWorkerStopped" xml:space="preserve"><value>Delete worker stopped.</value></data>
+  <data name="DestinationAlreadyDeleted" xml:space="preserve"><value>Destination file is already deleted: {Path}</value></data>
+  <data name="DestinationCurrentSkipped" xml:space="preserve"><value>Rule {RuleId}: Destination is already current. Transfer skipped: {Path}</value></data>
+  <data name="DestinationFolderLabel" xml:space="preserve"><value>目標資料夾 ({0})</value></data>
+  <data name="DirectoryChangeIgnored" xml:space="preserve"><value>忽略目錄變更：{Path}</value></data>
+  <data name="DuplicateHashSkipped" xml:space="preserve"><value>Rule {RuleId}: Duplicate event skipped by hash comparison: {Path}</value></data>
+  <data name="DuplicateRuntimeId" xml:space="preserve"><value>Rule RuntimeId 重複：{RuntimeId}</value></data>
+  <data name="EventDisabled" xml:space="preserve"><value>Rule {RuleId}: Disabled event ignored: {Event} {Path}</value></data>
+  <data name="EventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Event skipped by Ignore=true mapping: {Path}</value></data>
+  <data name="ExtensionSkipped" xml:space="preserve"><value>因副檔名篩選而略過：{Path}</value></data>
+  <data name="HashFailed" xml:space="preserve"><value>Hash calculation failed: {Path}</value></data>
+  <data name="HealthCheckFailed" xml:space="preserve"><value>目標健康檢查失敗。</value></data>
+  <data name="HealthUnexpectedError" xml:space="preserve"><value>目標健康檢查發生未預期錯誤：{Target}</value></data>
+  <data name="HealthWriteProbeFailed" xml:space="preserve"><value>目標健康寫入探測失敗：{Target}</value></data>
+  <data name="InventoryEnumerationError" xml:space="preserve"><value>inventory 列舉時發生錯誤：{Path}</value></data>
+  <data name="InventoryFailed" xml:space="preserve"><value>啟動時 inventory 收集失敗。</value></data>
+  <data name="InventoryMissing" xml:space="preserve"><value>{Label} 不存在（{Path}）。</value></data>
+  <data name="InventorySizeFailed" xml:space="preserve"><value>讀取檔案大小失敗：{Path}</value></data>
+  <data name="KeepExisting" xml:space="preserve"><value>Rule {RuleId}: Existing file kept because OverwriteExisting=false: {Path}</value></data>
+  <data name="MappingIgnored" xml:space="preserve"><value>符合 Ignore=true 的映射，已排除路徑：{Path}</value></data>
+  <data name="MappingInvalidPattern" xml:space="preserve"><value>Pattern 無效，已略過映射：{Pattern}. {Error}</value></data>
+  <data name="MappingNotInitializedCopy" xml:space="preserve"><value>Copy requested before path mapping was initialized: {Path}</value></data>
+  <data name="MappingNotInitializedDelete" xml:space="preserve"><value>Delete requested before path mapping was initialized: {Path}</value></data>
+  <data name="MappingTemplateFailed" xml:space="preserve"><value>樣板展開失敗，已略過映射：{Template}. {Error}</value></data>
+  <data name="MappingUnsafe" xml:space="preserve"><value>映射結果不是安全的相對路徑，已略過：{Template} -&gt; {Candidate}</value></data>
+  <data name="MoveToTrashOperation" xml:space="preserve"><value>移至垃圾箱</value></data>
+  <data name="MovedToTrash" xml:space="preserve"><value>File moved to trash directory: {Path} -&gt; {Trash}</value></data>
+  <data name="NoRules" xml:space="preserve"><value>沒有啟用的 rules。請檢查 appsettings.yaml 的 rules[]。</value></data>
+  <data name="OperationFailed" xml:space="preserve"><value>{Operation} 失敗：{Path}</value></data>
+  <data name="OperationFailedWithContext" xml:space="preserve"><value>{Operation} 失敗：{Path}. {Context}</value></data>
+  <data name="PathRuleInvalidPattern" xml:space="preserve"><value>PathRules 的 MatchPattern 無效：{Pattern}. {Error}</value></data>
+  <data name="PathRuleInvalidTemplate" xml:space="preserve"><value>PathRules 的 TargetTemplate 無效：{Template}. {Error}</value></data>
+  <data name="PathRuleInvalidTimeout" xml:space="preserve"><value>PathRules 的 RegexTimeoutMs 必須是正數：{Pattern}</value></data>
+  <data name="PathRuleMissingPattern" xml:space="preserve"><value>PathRules 必須設定 MatchPattern。</value></data>
+  <data name="PathRuleMissingTemplate" xml:space="preserve"><value>Ignore=false 的 PathRules 必須設定 TargetTemplate：{Pattern}</value></data>
+  <data name="ReadySourceInfoFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to read source info during ready check: {Path}</value></data>
+  <data name="ReadySourceMissing" xml:space="preserve"><value>Rule {RuleId}: Ready check stopped because the source file does not exist: {Path}</value></data>
+  <data name="ReadyTimeout" xml:space="preserve"><value>Rule {RuleId}: Source file readiness timed out: {Path}</value></data>
+  <data name="ReconciliationEnumerationFailed" xml:space="preserve"><value>Failed to enumerate a source file under: {Path}</value></data>
+  <data name="ReconciliationFailed" xml:space="preserve"><value>一致性檢查失敗。</value></data>
+  <data name="ReconciliationInitialSkipped" xml:space="preserve"><value>Initial reconciliation skipped by configuration.</value></data>
+  <data name="ReconciliationMismatchFound" xml:space="preserve"><value>Rule {RuleId}: 一致性檢查發現缺失或過期檔案：{Path}</value></data>
+  <data name="ReconciliationNoHealthyTargets" xml:space="preserve"><value>Reconciliation skipped. There are no healthy target paths.</value></data>
+  <data name="ReconciliationNoTargetPath" xml:space="preserve"><value>Rule {RuleId}: Reconciliation skipped because no valid target path could be resolved: {Path}</value></data>
+  <data name="ReconciliationSourceInfoFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to read source info during reconciliation: {Path}</value></data>
+  <data name="ReconciliationTargetInfoFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to read target info during reconciliation: {Path}</value></data>
+  <data name="RuleIdMissing" xml:space="preserve"><value>RuleId 未設定。</value></data>
+  <data name="RuleSourceMissing" xml:space="preserve"><value>Rule {RuleId}: SourceRoot 未設定。</value></data>
+  <data name="RuleSourceNormalizeFailed" xml:space="preserve"><value>Rule {RuleId}: SourceRoot 正規化失敗：{Path}</value></data>
+  <data name="RuleSourceTargetOverlap" xml:space="preserve"><value>Rule {RuleId}: SourceRoot 與 TargetRoots 不能互相包含：{SourceRoot} / {TargetRoots}</value></data>
+  <data name="RuleTargetNormalizeFailed" xml:space="preserve"><value>Rule {RuleId}: TargetRoots 正規化失敗：{Path}</value></data>
+  <data name="RuleTargetsMissing" xml:space="preserve"><value>Rule {RuleId}: TargetRoots 未設定。</value></data>
+  <data name="RuntimeQueueChanged" xml:space="preserve"><value>Rule runtime 的佇列設定已變更，將重新建立：{RuntimeId}</value></data>
+  <data name="RuntimeStarted" xml:space="preserve"><value>已啟動 Rule runtime：{RuntimeId}</value></data>
+  <data name="RuntimeStopped" xml:space="preserve"><value>已停止 Rule runtime：{RuntimeId}</value></data>
+  <data name="SavedTargetStateInitFailed" xml:space="preserve"><value>Failed to load saved target path state. State files will be initialized.</value></data>
+  <data name="SavedTargetStateLoadFailed" xml:space="preserve"><value>Failed to load saved target path state.</value></data>
+  <data name="ServiceStartConfigFailed" xml:space="preserve"><value>初始設定載入失敗。等待有效的設定更新。</value></data>
+  <data name="ServiceStarted" xml:space="preserve"><value>服務已成功啟動。</value></data>
+  <data name="ServiceStopped" xml:space="preserve"><value>服務已停止。</value></data>
+  <data name="SkipUnhealthyTarget" xml:space="preserve"><value>Rule {RuleId}: Skipping unhealthy target: {Target}</value></data>
+  <data name="SkippedByIgnoreContext" xml:space="preserve"><value>Skipped {Context} because it matched an Ignore=true mapping: {Path}</value></data>
+  <data name="SourceAlreadyMissing" xml:space="preserve"><value>Source file already does not exist: {Path}</value></data>
+  <data name="SourceDeleteAccessDenied" xml:space="preserve"><value>Access denied while deleting source: {Path}</value></data>
+  <data name="SourceDeleteFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to delete source file: {Path}</value></data>
+  <data name="SourceDeleteIoTransient" xml:space="preserve"><value>Temporary IO error while deleting source: {Path}</value></data>
+  <data name="SourceDeleteTimeout" xml:space="preserve"><value>Source file deletion timed out: {Path}</value></data>
+  <data name="SourceDeleted" xml:space="preserve"><value>Source file deleted: {Path}</value></data>
+  <data name="SourceDisappearedBeforeCopy" xml:space="preserve"><value>Rule {RuleId}: Source file disappeared before transfer started: {Path}</value></data>
+  <data name="SourceNotFound" xml:space="preserve"><value>Rule {RuleId}: Source file not found: {Path}</value></data>
+  <data name="TargetDirectoryMissing" xml:space="preserve"><value>Rule {RuleId}: Target directory not found: {Path}</value></data>
+  <data name="TargetRecovered" xml:space="preserve"><value>目標 {Target} 已恢復（{State}）。{Reason}</value></data>
+  <data name="TargetStateChanged" xml:space="preserve"><value>目標 {Target} 狀態已變更（{State}）。{Reason}</value></data>
+  <data name="TargetStateCompactCheckFailed" xml:space="preserve"><value>Failed to evaluate target path state compaction.</value></data>
+  <data name="TargetStateCompactFailed" xml:space="preserve"><value>Target path state compaction failed.</value></data>
+  <data name="TargetStateConsecutiveFailures" xml:space="preserve"><value>Target path state persistence failed repeatedly. In-memory state is kept and later saves will retry recovery.</value></data>
+  <data name="TargetStateFileDeleteFailed" xml:space="preserve"><value>Failed to delete target path state file: {Path}</value></data>
+  <data name="TargetStateQueueEnqueueFailed" xml:space="preserve"><value>Failed to enqueue target path state for asynchronous save.</value></data>
+  <data name="TargetStateQueueFull" xml:space="preserve"><value>目標路徑狀態保存佇列已達上限。記憶體狀態會保留，但持久化暫時降級。</value></data>
+  <data name="TargetStateRecovered" xml:space="preserve"><value>目標路徑狀態持久化已恢復。</value></data>
+  <data name="TargetStateSaveFailedRetry" xml:space="preserve"><value>Target path state save failed. Retrying shortly.</value></data>
+  <data name="TargetStateWorkerStopped" xml:space="preserve"><value>Target path state asynchronous save worker stopped.</value></data>
+  <data name="TargetWriteAccessDenied" xml:space="preserve"><value>Rule {RuleId}: Access denied while writing to target: {Path}</value></data>
+  <data name="TargetWriteIoTransient" xml:space="preserve"><value>Rule {RuleId}: Temporary IO error while writing to target: {Path}</value></data>
+  <data name="TransferIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Transfer skipped by Ignore=true mapping: {Path}</value></data>
+  <data name="TrashFolderLabel" xml:space="preserve"><value>.trash 資料夾</value></data>
+  <data name="TrashMoveAccessDenied" xml:space="preserve"><value>Access denied while moving to trash: {Path}</value></data>
+  <data name="TrashMoveIoTransient" xml:space="preserve"><value>Temporary IO error while moving to trash: {Path}</value></data>
+  <data name="TrashMoveTimeout" xml:space="preserve"><value>Move to trash timed out: {Path}</value></data>
+  <data name="Usage" xml:space="preserve"><value>FileTransfer {0}
+
+用法:
+  FileTransfer --config &lt;appsettings.yaml&gt;
+  FileTransfer --validate --config &lt;appsettings.yaml&gt;
+  FileTransfer --version
+
+選項:
+  -c, --config &lt;path&gt;     YAML 設定檔路徑。
+      --validate          驗證設定後結束。
+      --version           顯示版本後結束。
+  -h, --help              顯示說明。</value></data>
+  <data name="WatchedFolderLabel" xml:space="preserve"><value>監控來源資料夾</value></data>
+  <data name="WatcherErrorRestart" xml:space="preserve"><value>File watcher error occurred. Scheduling restart.</value></data>
+  <data name="WatcherRestartFailed" xml:space="preserve"><value>File watcher restart failed. Retrying.</value></data>
+  <data name="WatcherRestarted" xml:space="preserve"><value>File watcher restarted (attempt {Attempt}).</value></data>
+  <data name="WatcherSourceMissing" xml:space="preserve"><value>Watched folder does not exist: {Path}</value></data>
+  <data name="WatcherStopFailed" xml:space="preserve"><value>File watcher stop failed.</value></data>
+  <data name="BytesUnit" xml:space="preserve"><value>位元組</value></data>
+  <data name="CopyContext" xml:space="preserve"><value>複製處理</value></data>
+  <data name="CopySucceededHealthReason" xml:space="preserve"><value>複製成功。</value></data>
+  <data name="DeleteSyncContext" xml:space="preserve"><value>刪除同步</value></data>
+  <data name="DirectoryNotFoundReason" xml:space="preserve"><value>找不到目錄。</value></data>
+  <data name="FileChangeChanged" xml:space="preserve"><value>更新</value></data>
+  <data name="FileChangeCreated" xml:space="preserve"><value>建立</value></data>
+  <data name="FileChangeDeleted" xml:space="preserve"><value>刪除</value></data>
+  <data name="FileChangeRenamed" xml:space="preserve"><value>重新命名</value></data>
+  <data name="FileChangeUnknown" xml:space="preserve"><value>未知</value></data>
+  <data name="HealthCheckFailedReason" xml:space="preserve"><value>健康檢查偵測到故障。</value></data>
+  <data name="HealthCheckSucceededReason" xml:space="preserve"><value>健康檢查成功。</value></data>
+  <data name="HealthStateHealthy" xml:space="preserve"><value>正常</value></data>
+  <data name="HealthStateUnhealthy" xml:space="preserve"><value>異常</value></data>
+  <data name="InventorySummary" xml:space="preserve"><value>{Label}: 路徑={Path} / 子目錄={Dirs} / 檔案={Files} / 總大小={Size}</value></data>
+  <data name="InventorySummaryWithAdvice" xml:space="preserve"><value>{Label}: 路徑={Path} / 子目錄={Dirs} / 檔案={Files} / 總大小={Size}。如果累積不必要資料，請考慮刪除或移至其他位置。</value></data>
+  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: 一致性檢查達到資源上限，將於下次繼續。Scanned={Scanned}, MaxFiles={MaxFiles}</value></data>
+  <data name="RuleApplied" xml:space="preserve"><value>已套用 Rule {RuleId}。監控路徑：{Path} / TargetMode: {TargetMode}</value></data>
+  <data name="WriteAccessDeniedReason" xml:space="preserve"><value>寫入時存取被拒。</value></data>
+  <data name="WriteIoErrorReason" xml:space="preserve"><value>寫入時發生 IO 錯誤。</value></data>
+  <data name="PathRuleRegexTimeout" xml:space="preserve"><value>PathRule regex 逾時，已略過：{Pattern}</value></data>
+</root>

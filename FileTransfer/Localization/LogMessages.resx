@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AllTargetsUnhealthy" xml:space="preserve"><value>Rule {RuleId}: All target paths are marked unhealthy. Waiting for recovery.</value></data>
+  <data name="ConfigReloadApplied" xml:space="preserve"><value>Configuration reload applied. Runtime count: {RuntimeCount}</value></data>
+  <data name="ConfigReloadFailed" xml:space="preserve"><value>Configuration reload failed.</value></data>
+  <data name="ConfigReloadParseFailed" xml:space="preserve"><value>Config reload parse failed. Keeping previous configuration: {Revision}</value></data>
+  <data name="ConfigReloadParsed" xml:space="preserve"><value>Config reload parsed successfully: {Revision}. Runtime count: {RuntimeCount}</value></data>
+  <data name="ConfigReloadRejected" xml:space="preserve"><value>Configuration reload rejected. The previous valid configuration will continue to run.</value></data>
+  <data name="ConfigReloadStarted" xml:space="preserve"><value>Config reload started: {Revision}</value></data>
+  <data name="ConfigurationInvalid" xml:space="preserve"><value>Configuration is invalid.</value></data>
+  <data name="ConfigurationValid" xml:space="preserve"><value>Configuration is valid. Runtime count: {0}</value></data>
+  <data name="CopyDuplicatePending" xml:space="preserve"><value>Concurrent processing for the same file was suppressed. Reprocessing was reserved: {Path}</value></data>
+  <data name="CopyOperation" xml:space="preserve"><value>copy operation</value></data>
+  <data name="CopyQueueFull" xml:space="preserve"><value>Copy queue is full. Registration was deferred; reconciliation or later events will retry: {Path}</value></data>
+  <data name="CopyQueued" xml:space="preserve"><value>Queued for copy: {Event} {Path}</value></data>
+  <data name="CopySourceMissingBefore" xml:space="preserve"><value>Rule {RuleId}: Source does not exist before transfer: {Path}</value></data>
+  <data name="CopySucceeded" xml:space="preserve"><value>Rule {RuleId}: File transfer completed: {Src} -&gt; {Dst}</value></data>
+  <data name="CopyTimeout" xml:space="preserve"><value>Rule {RuleId}: File transfer timed out: {Path}</value></data>
+  <data name="CopyUnhandledError" xml:space="preserve"><value>Rule {RuleId}: Unhandled error during file transfer: {Path}</value></data>
+  <data name="CopyWorkerStopped" xml:space="preserve"><value>Copy worker stopped: {WorkerId}</value></data>
+  <data name="DefaultRelativeUnsafe" xml:space="preserve"><value>Default relative path is not safe. Skipped: {Path} -&gt; {RelativePath}</value></data>
+  <data name="DeleteDuplicatePending" xml:space="preserve"><value>Concurrent delete processing was suppressed. Reprocessing was reserved: {Path}</value></data>
+  <data name="DeleteEventDisabled" xml:space="preserve"><value>Rule {RuleId}: Delete event skipped because it is disabled: {Path}</value></data>
+  <data name="DeleteEventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Delete event skipped by Ignore=true mapping: {Path}</value></data>
+  <data name="DeleteQueueFull" xml:space="preserve"><value>Delete queue is full. Registration was deferred: {Path}</value></data>
+  <data name="DeleteWorkerStopped" xml:space="preserve"><value>Delete worker stopped.</value></data>
+  <data name="DestinationAlreadyDeleted" xml:space="preserve"><value>Destination file is already deleted: {Path}</value></data>
+  <data name="DestinationCurrentSkipped" xml:space="preserve"><value>Rule {RuleId}: Destination is already current. Transfer skipped: {Path}</value></data>
+  <data name="DestinationFolderLabel" xml:space="preserve"><value>Target folder ({0})</value></data>
+  <data name="DirectoryChangeIgnored" xml:space="preserve"><value>Directory change is ignored: {Path}</value></data>
+  <data name="DuplicateHashSkipped" xml:space="preserve"><value>Rule {RuleId}: Duplicate event skipped by hash comparison: {Path}</value></data>
+  <data name="DuplicateRuntimeId" xml:space="preserve"><value>Duplicate rule RuntimeId: {RuntimeId}</value></data>
+  <data name="EventDisabled" xml:space="preserve"><value>Rule {RuleId}: Disabled event ignored: {Event} {Path}</value></data>
+  <data name="EventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Event skipped by Ignore=true mapping: {Path}</value></data>
+  <data name="ExtensionSkipped" xml:space="preserve"><value>Skipped by extension filter: {Path}</value></data>
+  <data name="HashFailed" xml:space="preserve"><value>Hash calculation failed: {Path}</value></data>
+  <data name="HealthCheckFailed" xml:space="preserve"><value>Target health check failed.</value></data>
+  <data name="HealthUnexpectedError" xml:space="preserve"><value>Unexpected target health check error: {Target}</value></data>
+  <data name="HealthWriteProbeFailed" xml:space="preserve"><value>Target health write probe failed: {Target}</value></data>
+  <data name="InventoryEnumerationError" xml:space="preserve"><value>Error during startup inventory enumeration: {Path}</value></data>
+  <data name="InventoryFailed" xml:space="preserve"><value>Startup inventory collection failed.</value></data>
+  <data name="InventoryMissing" xml:space="preserve"><value>{Label} does not exist ({Path}).</value></data>
+  <data name="InventorySizeFailed" xml:space="preserve"><value>Failed to read file size: {Path}</value></data>
+  <data name="KeepExisting" xml:space="preserve"><value>Rule {RuleId}: Existing file kept because OverwriteExisting=false: {Path}</value></data>
+  <data name="MappingIgnored" xml:space="preserve"><value>Path was excluded by an Ignore=true mapping: {Path}</value></data>
+  <data name="MappingInvalidPattern" xml:space="preserve"><value>Mapping skipped because Pattern is invalid: {Pattern}. {Error}</value></data>
+  <data name="MappingNotInitializedCopy" xml:space="preserve"><value>Copy requested before path mapping was initialized: {Path}</value></data>
+  <data name="MappingNotInitializedDelete" xml:space="preserve"><value>Delete requested before path mapping was initialized: {Path}</value></data>
+  <data name="MappingTemplateFailed" xml:space="preserve"><value>Template expansion failed. Mapping skipped: {Template}. {Error}</value></data>
+  <data name="MappingUnsafe" xml:space="preserve"><value>Mapping result is not a safe relative path. Skipped: {Template} -&gt; {Candidate}</value></data>
+  <data name="MoveToTrashOperation" xml:space="preserve"><value>move to trash</value></data>
+  <data name="MovedToTrash" xml:space="preserve"><value>File moved to trash directory: {Path} -&gt; {Trash}</value></data>
+  <data name="NoRules" xml:space="preserve"><value>No enabled rules were configured. Check rules[] in appsettings.yaml.</value></data>
+  <data name="OperationFailed" xml:space="preserve"><value>{Operation} failed: {Path}</value></data>
+  <data name="OperationFailedWithContext" xml:space="preserve"><value>{Operation} failed: {Path}. {Context}</value></data>
+  <data name="PathRuleInvalidPattern" xml:space="preserve"><value>PathRules MatchPattern is invalid: {Pattern}. {Error}</value></data>
+  <data name="PathRuleInvalidTemplate" xml:space="preserve"><value>PathRules TargetTemplate is invalid: {Template}. {Error}</value></data>
+  <data name="PathRuleInvalidTimeout" xml:space="preserve"><value>PathRules RegexTimeoutMs must be positive: {Pattern}</value></data>
+  <data name="PathRuleMissingPattern" xml:space="preserve"><value>PathRules requires MatchPattern.</value></data>
+  <data name="PathRuleMissingTemplate" xml:space="preserve"><value>PathRules with Ignore=false requires TargetTemplate: {Pattern}</value></data>
+  <data name="ReadySourceInfoFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to read source info during ready check: {Path}</value></data>
+  <data name="ReadySourceMissing" xml:space="preserve"><value>Rule {RuleId}: Ready check stopped because the source file does not exist: {Path}</value></data>
+  <data name="ReadyTimeout" xml:space="preserve"><value>Rule {RuleId}: Source file readiness timed out: {Path}</value></data>
+  <data name="ReconciliationEnumerationFailed" xml:space="preserve"><value>Failed to enumerate a source file under: {Path}</value></data>
+  <data name="ReconciliationFailed" xml:space="preserve"><value>Reconciliation failed.</value></data>
+  <data name="ReconciliationInitialSkipped" xml:space="preserve"><value>Initial reconciliation skipped by configuration.</value></data>
+  <data name="ReconciliationMismatchFound" xml:space="preserve"><value>Rule {RuleId}: Reconciliation found a missing or stale file: {Path}</value></data>
+  <data name="ReconciliationNoHealthyTargets" xml:space="preserve"><value>Reconciliation skipped. There are no healthy target paths.</value></data>
+  <data name="ReconciliationNoTargetPath" xml:space="preserve"><value>Rule {RuleId}: Reconciliation skipped because no valid target path could be resolved: {Path}</value></data>
+  <data name="ReconciliationSourceInfoFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to read source info during reconciliation: {Path}</value></data>
+  <data name="ReconciliationTargetInfoFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to read target info during reconciliation: {Path}</value></data>
+  <data name="RuleIdMissing" xml:space="preserve"><value>RuleId is required.</value></data>
+  <data name="RuleSourceMissing" xml:space="preserve"><value>Rule {RuleId}: SourceRoot is required.</value></data>
+  <data name="RuleSourceNormalizeFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to normalize SourceRoot: {Path}</value></data>
+  <data name="RuleSourceTargetOverlap" xml:space="preserve"><value>Rule {RuleId}: SourceRoot cannot be inside TargetRoots, and TargetRoots cannot be inside SourceRoot: {SourceRoot} / {TargetRoots}</value></data>
+  <data name="RuleTargetNormalizeFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to normalize TargetRoots: {Path}</value></data>
+  <data name="RuleTargetsMissing" xml:space="preserve"><value>Rule {RuleId}: TargetRoots is required.</value></data>
+  <data name="RuntimeQueueChanged" xml:space="preserve"><value>Rule runtime queue settings changed. Recreating runtime: {RuntimeId}</value></data>
+  <data name="RuntimeStarted" xml:space="preserve"><value>Rule runtime started: {RuntimeId}</value></data>
+  <data name="RuntimeStopped" xml:space="preserve"><value>Rule runtime stopped: {RuntimeId}</value></data>
+  <data name="SavedTargetStateInitFailed" xml:space="preserve"><value>Failed to load saved target path state. State files will be initialized.</value></data>
+  <data name="SavedTargetStateLoadFailed" xml:space="preserve"><value>Failed to load saved target path state.</value></data>
+  <data name="ServiceStartConfigFailed" xml:space="preserve"><value>Initial configuration load failed. Waiting for a valid configuration update.</value></data>
+  <data name="ServiceStarted" xml:space="preserve"><value>Service started successfully.</value></data>
+  <data name="ServiceStopped" xml:space="preserve"><value>Service stopped.</value></data>
+  <data name="SkipUnhealthyTarget" xml:space="preserve"><value>Rule {RuleId}: Skipping unhealthy target: {Target}</value></data>
+  <data name="SkippedByIgnoreContext" xml:space="preserve"><value>Skipped {Context} because it matched an Ignore=true mapping: {Path}</value></data>
+  <data name="SourceAlreadyMissing" xml:space="preserve"><value>Source file already does not exist: {Path}</value></data>
+  <data name="SourceDeleteAccessDenied" xml:space="preserve"><value>Access denied while deleting source: {Path}</value></data>
+  <data name="SourceDeleteFailed" xml:space="preserve"><value>Rule {RuleId}: Failed to delete source file: {Path}</value></data>
+  <data name="SourceDeleteIoTransient" xml:space="preserve"><value>Temporary IO error while deleting source: {Path}</value></data>
+  <data name="SourceDeleteTimeout" xml:space="preserve"><value>Source file deletion timed out: {Path}</value></data>
+  <data name="SourceDeleted" xml:space="preserve"><value>Source file deleted: {Path}</value></data>
+  <data name="SourceDisappearedBeforeCopy" xml:space="preserve"><value>Rule {RuleId}: Source file disappeared before transfer started: {Path}</value></data>
+  <data name="SourceNotFound" xml:space="preserve"><value>Rule {RuleId}: Source file not found: {Path}</value></data>
+  <data name="TargetDirectoryMissing" xml:space="preserve"><value>Rule {RuleId}: Target directory not found: {Path}</value></data>
+  <data name="TargetRecovered" xml:space="preserve"><value>Target {Target} recovered ({State}). {Reason}</value></data>
+  <data name="TargetStateChanged" xml:space="preserve"><value>Target {Target} state changed ({State}). {Reason}</value></data>
+  <data name="TargetStateCompactCheckFailed" xml:space="preserve"><value>Failed to evaluate target path state compaction.</value></data>
+  <data name="TargetStateCompactFailed" xml:space="preserve"><value>Target path state compaction failed.</value></data>
+  <data name="TargetStateConsecutiveFailures" xml:space="preserve"><value>Target path state persistence failed repeatedly. In-memory state is kept and later saves will retry recovery.</value></data>
+  <data name="TargetStateFileDeleteFailed" xml:space="preserve"><value>Failed to delete target path state file: {Path}</value></data>
+  <data name="TargetStateQueueEnqueueFailed" xml:space="preserve"><value>Failed to enqueue target path state for asynchronous save.</value></data>
+  <data name="TargetStateQueueFull" xml:space="preserve"><value>Target path state save queue reached its limit. In-memory state is kept, but persistence is temporarily degraded.</value></data>
+  <data name="TargetStateRecovered" xml:space="preserve"><value>Target path state persistence recovered.</value></data>
+  <data name="TargetStateSaveFailedRetry" xml:space="preserve"><value>Target path state save failed. Retrying shortly.</value></data>
+  <data name="TargetStateWorkerStopped" xml:space="preserve"><value>Target path state asynchronous save worker stopped.</value></data>
+  <data name="TargetWriteAccessDenied" xml:space="preserve"><value>Rule {RuleId}: Access denied while writing to target: {Path}</value></data>
+  <data name="TargetWriteIoTransient" xml:space="preserve"><value>Rule {RuleId}: Temporary IO error while writing to target: {Path}</value></data>
+  <data name="TransferIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Transfer skipped by Ignore=true mapping: {Path}</value></data>
+  <data name="TrashFolderLabel" xml:space="preserve"><value>.trash folder</value></data>
+  <data name="TrashMoveAccessDenied" xml:space="preserve"><value>Access denied while moving to trash: {Path}</value></data>
+  <data name="TrashMoveIoTransient" xml:space="preserve"><value>Temporary IO error while moving to trash: {Path}</value></data>
+  <data name="TrashMoveTimeout" xml:space="preserve"><value>Move to trash timed out: {Path}</value></data>
+  <data name="Usage" xml:space="preserve"><value>FileTransfer {0}
+
+Usage:
+  FileTransfer --config &lt;appsettings.yaml&gt;
+  FileTransfer --validate --config &lt;appsettings.yaml&gt;
+  FileTransfer --version
+
+Options:
+  -c, --config &lt;path&gt;     Path to the YAML configuration file.
+      --validate          Validate configuration and exit.
+      --version           Print version and exit.
+  -h, --help              Show this help.</value></data>
+  <data name="WatchedFolderLabel" xml:space="preserve"><value>Watched source folder</value></data>
+  <data name="WatcherErrorRestart" xml:space="preserve"><value>File watcher error occurred. Scheduling restart.</value></data>
+  <data name="WatcherRestartFailed" xml:space="preserve"><value>File watcher restart failed. Retrying.</value></data>
+  <data name="WatcherRestarted" xml:space="preserve"><value>File watcher restarted (attempt {Attempt}).</value></data>
+  <data name="WatcherSourceMissing" xml:space="preserve"><value>Watched folder does not exist: {Path}</value></data>
+  <data name="WatcherStopFailed" xml:space="preserve"><value>File watcher stop failed.</value></data>
+  <data name="BytesUnit" xml:space="preserve"><value>bytes</value></data>
+  <data name="CopyContext" xml:space="preserve"><value>copy operation</value></data>
+  <data name="CopySucceededHealthReason" xml:space="preserve"><value>copy succeeded.</value></data>
+  <data name="DeleteSyncContext" xml:space="preserve"><value>delete synchronization</value></data>
+  <data name="DirectoryNotFoundReason" xml:space="preserve"><value>directory not found.</value></data>
+  <data name="FileChangeChanged" xml:space="preserve"><value>changed</value></data>
+  <data name="FileChangeCreated" xml:space="preserve"><value>created</value></data>
+  <data name="FileChangeDeleted" xml:space="preserve"><value>deleted</value></data>
+  <data name="FileChangeRenamed" xml:space="preserve"><value>renamed</value></data>
+  <data name="FileChangeUnknown" xml:space="preserve"><value>unknown</value></data>
+  <data name="HealthCheckFailedReason" xml:space="preserve"><value>health check detected a failure.</value></data>
+  <data name="HealthCheckSucceededReason" xml:space="preserve"><value>health check succeeded.</value></data>
+  <data name="HealthStateHealthy" xml:space="preserve"><value>healthy</value></data>
+  <data name="HealthStateUnhealthy" xml:space="preserve"><value>unhealthy</value></data>
+  <data name="InventorySummary" xml:space="preserve"><value>{Label}: path={Path} / subdirectories={Dirs} / files={Files} / total size={Size}</value></data>
+  <data name="InventorySummaryWithAdvice" xml:space="preserve"><value>{Label}: path={Path} / subdirectories={Dirs} / files={Files} / total size={Size}. Consider deleting or moving stale data when unnecessary files accumulate.</value></data>
+  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: Reconciliation reached the resource limit and will continue on the next run. Scanned={Scanned}, MaxFiles={MaxFiles}</value></data>
+  <data name="RuleApplied" xml:space="preserve"><value>Rule {RuleId} applied. Source path: {Path} / TargetMode: {TargetMode}</value></data>
+  <data name="WriteAccessDeniedReason" xml:space="preserve"><value>access denied while writing.</value></data>
+  <data name="WriteIoErrorReason" xml:space="preserve"><value>IO error while writing.</value></data>
+  <data name="PathRuleRegexTimeout" xml:space="preserve"><value>PathRule regex timed out and was skipped: {Pattern}</value></data>
+</root>

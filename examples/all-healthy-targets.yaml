@@ -1,0 +1,17 @@
+version: 2
+paths:
+  stateDir: /var/lib/filetransfer
+  logDir: /var/log/filetransfer
+rules:
+  - id: scanner-mirror
+    sourceRoots:
+      - /data/inbox
+    targetRoots:
+      - /mnt/nas-a/scanner
+      - /mnt/nas-b/scanner
+    targetMode: AllHealthyTargets
+    pathRules:
+      - matchPattern: ^(?<date>\d{8})/(?<file>.+)$
+        targetTemplate: '{date}/{file}'
+logging:
+  language: en

@@ -1,0 +1,13 @@
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Ll]og/
+[Ll]ogs/
+.vs/
+
+*.user
+dist/
+TestResults/
+
+# Local/private deployment configuration. Public examples stay tracked.
+FileTransfer/appsettings.*.local.yaml

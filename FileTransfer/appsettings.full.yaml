@@ -1,0 +1,159 @@
+# FileTransfer full configuration example.
+#
+# FileTransfer is YAML-only. appsettings.json is intentionally not supported.
+# Most deployments only need:
+#   paths.stateDir / paths.logDir, if the defaults are not suitable
+#   logging.language, if you want deterministic log language
+#   rules[].id
+#   rules[].sourceRoots
+#   rules[].targetRoots
+#   rules[].pathRules
+
+version: 2
+
+# Mutable runtime data is separated from the executable directory.
+# Relative paths are resolved from the executable directory.
+# When omitted, FileTransfer uses writable application data locations:
+#   Windows: %ProgramData%/FileTransfer/{state,logs}
+#   Linux/macOS: $XDG_STATE_HOME/FileTransfer/{state,logs} or ~/.local/state/FileTransfer/{state,logs}
+paths:
+  stateDir: ./state
+  logDir: ./logs
+
+rules:
+  - id: scanner
+    enabled: true
+
+    # One rule can watch multiple source roots.
+    # Each source root becomes an independent runtime with its own watcher, queues, reconciliation, and runtime cache namespace.
+    sourceRoots:
+      - C:\Inbox
+
+    # Supported values:
+    #   FirstAvailable   - copy to the first healthy target only
+    #   AllHealthyTargets - copy to every healthy target; reconciliation fills recovered targets later
+    # Removed intentionally: PrimaryAndBackup.
+    targetRoots:
+      - \\NAS01\Scanner
+      - \\NAS02\Scanner
+    targetMode: AllHealthyTargets
+
+    # File extension filter. Omit or use an empty list to accept all extensions.
+    # Values may be written with or without a leading dot.
+    fileExtensions:
+      - tif
+      - tiff
+
+    # Optional filename prefix applied to copied target file names.
+    # The prefix is not duplicated when the source file already starts with it.
+    fileNamePrefix: M01_
+
+    includeSubdirectories: true
+    overwriteExisting: true
+    deleteSourceAfterCopy: false
+    skipInitialScan: false
+
+    # Supported values: LengthAndTimestamp, Hash.
+    # Default/recommended: LengthAndTimestamp.
+    # Hash is stronger but costs more CPU and disk IO.
+    verificationMode: LengthAndTimestamp
+
+    # File readiness detection before copy.
+    # StableSize is the recommended default for scanners, SMB shares, and batch output folders.
+    # RenameOnly assumes the producer writes a temporary file and renames it only after completion.
+    # DoneFile waits for '<source file>.done' unless doneFileSuffix is changed.
+    readySignal:
+      mode: StableSize
+      stableChecks: 3
+      intervalMs: 1000
+      timeoutMs: 300000
+      requireReadable: true
+      doneFileSuffix: .done
+
+    # Bounded in-memory queues prevent file storms from consuming unlimited memory.
+    # If a queue is full, later watcher events and reconciliation act as the retry safety net.
+    queue:
+      copyCapacity: 10000
+      deleteCapacity: 5000
+
+    # Runtime resource controls.
+    # copyBufferSize and hashBufferSize are intentionally separate from watcherInternalBufferSize.
+    maxParallelTransfers: 4
+    copyBufferSize: 262144
+    hashBufferSize: 262144
+    watcherInternalBufferSize: 65536
+
+    # Retry and operation timeout controls.
+    initialRetryDelayMs: 200
+    maxRetryDelayMs: 3000
+    operationTimeoutMs: 300000
+
+    # Reconciliation scans source files and fixes missed events, missing targets, and stale targets.
+    # For FirstAvailable, any current target is enough.
+    # For AllHealthyTargets, every healthy target must have a current file.
+    reconciliationIntervalMs: 60000
+    maxReconciliationFilesPerRun: 10000
+    maxReconciliationDurationMs: 30000
+
+    # Target health checks use unique lightweight write/delete probe files under .filetransfer-health.
+    healthCheckIntervalMs: 10000
+
+    # FileSystemWatcher events.
+    # Renamed events are treated as enabled when either Created or Changed is enabled.
+    # Deleted is false by default because this is primarily a one-way transfer service.
+    watchEvents:
+      created: true
+      changed: true
+      deleted: false
+
+    # Optional FileSystemWatcher notify filters.
+    # If omitted, FileName + DirectoryName + LastWrite are used.
+    notifyFilters:
+      - FileName
+      - DirectoryName
+      - LastWrite
+
+    # Path rules are evaluated in order.
+    # Use ignore: true to exclude matching files.
+    # regexTimeoutMs prevents catastrophic regular expressions from blocking worker threads.
+    pathRules:
+      - matchPattern: ^(?<date>\d{8})[\\/](?<file>.+)$
+        targetTemplate: '{date}/{file}'
+        regexTimeoutMs: 500
+
+      - matchPattern: ^.*[\\/]tmp[\\/].*$
+        ignore: true
+        regexTimeoutMs: 500
+
+  - id: reports
+    enabled: false
+    sourceRoots:
+      - C:\Reports
+    targetRoots:
+      - \\NAS01\Reports
+    targetMode: FirstAvailable
+    fileExtensions:
+      - csv
+      - xlsx
+    readySignal:
+      mode: RenameOnly
+    pathRules:
+      - matchPattern: ^(?<path>.+)$
+        targetTemplate: '{path}'
+        regexTimeoutMs: 500
+
+# Logs are written to console and file.
+# Windows Service builds also write EventLog; Linux builds integrate with systemd when available.
+logging:
+  # Supported values: auto, en, ja, zh-Hant.
+  # auto follows the service account's UI culture / locale.
+  # For production, set an explicit value when deterministic log language is required.
+  language: auto
+  logLevel:
+    default: Information
+    system: Warning
+    microsoft: Warning
+  file:
+    path: app_{0:yyyyMMdd}.log
+    fileSizeLimitBytes: 10485760
+    minLevel: Information

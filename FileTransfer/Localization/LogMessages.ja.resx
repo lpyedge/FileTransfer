@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="AllTargetsUnhealthy" xml:space="preserve"><value>Rule {RuleId}: 全てのターゲットパスが障害状態としてマークされています。回復を待機します。</value></data>
+  <data name="ConfigReloadApplied" xml:space="preserve"><value>設定の再読み込みを適用しました。Runtime 数: {RuntimeCount}</value></data>
+  <data name="ConfigReloadFailed" xml:space="preserve"><value>設定の再読み込みに失敗しました。</value></data>
+  <data name="ConfigReloadParseFailed" xml:space="preserve"><value>設定の再読み込みに失敗しました。前回の設定を継続します: {Revision}</value></data>
+  <data name="ConfigReloadParsed" xml:space="preserve"><value>設定の再読み込みを解析しました: {Revision}. Runtime 数: {RuntimeCount}</value></data>
+  <data name="ConfigReloadRejected" xml:space="preserve"><value>設定の再読み込みを拒否しました。前回の有効な設定を継続します。</value></data>
+  <data name="ConfigReloadStarted" xml:space="preserve"><value>設定の再読み込みを開始しました: {Revision}</value></data>
+  <data name="ConfigurationInvalid" xml:space="preserve"><value>設定が無効です。</value></data>
+  <data name="ConfigurationValid" xml:space="preserve"><value>設定は有効です。Runtime 数: {0}</value></data>
+  <data name="CopyDuplicatePending" xml:space="preserve"><value>同一ファイルの同時処理を抑止しました（再処理を予約）: {Path}</value></data>
+  <data name="CopyOperation" xml:space="preserve"><value>転送処理</value></data>
+  <data name="CopyQueueFull" xml:space="preserve"><value>転送キューが上限に達したため登録を延期しました。整合性チェックまたは後続イベントで再試行します: {Path}</value></data>
+  <data name="CopyQueued" xml:space="preserve"><value>転送キューに登録しました: {Event} {Path}</value></data>
+  <data name="CopySourceMissingBefore" xml:space="preserve"><value>Rule {RuleId}: 転送前にソースが存在しません: {Path}</value></data>
+  <data name="CopySucceeded" xml:space="preserve"><value>Rule {RuleId}: ファイル転送が完了しました: {Src} -&gt; {Dst}</value></data>
+  <data name="CopyTimeout" xml:space="preserve"><value>Rule {RuleId}: ファイル転送がタイムアウトしました: {Path}</value></data>
+  <data name="CopyUnhandledError" xml:space="preserve"><value>Rule {RuleId}: ファイル転送中に未処理のエラーが発生しました: {Path}</value></data>
+  <data name="CopyWorkerStopped" xml:space="preserve"><value>転送ワーカーが停止しました: {WorkerId}</value></data>
+  <data name="DefaultRelativeUnsafe" xml:space="preserve"><value>既定の相対パスが安全ではないためスキップします: {Path} -&gt; {RelativePath}</value></data>
+  <data name="DeleteDuplicatePending" xml:space="preserve"><value>削除処理が競合したため再処理を予約しました: {Path}</value></data>
+  <data name="DeleteEventDisabled" xml:space="preserve"><value>Rule {RuleId}: 削除イベントが無効化されているためスキップします: {Path}</value></data>
+  <data name="DeleteEventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Ignore=true のマッピングに一致したため削除イベントをスキップします: {Path}</value></data>
+  <data name="DeleteQueueFull" xml:space="preserve"><value>削除キューが上限に達したため登録を延期しました: {Path}</value></data>
+  <data name="DeleteWorkerStopped" xml:space="preserve"><value>削除ワーカーが停止しました。</value></data>
+  <data name="DestinationAlreadyDeleted" xml:space="preserve"><value>宛先ファイルは既に削除済みです: {Path}</value></data>
+  <data name="DestinationCurrentSkipped" xml:space="preserve"><value>Rule {RuleId}: 宛先が既に最新のため転送をスキップします: {Path}</value></data>
+  <data name="DestinationFolderLabel" xml:space="preserve"><value>転送先フォルダー ({0})</value></data>
+  <data name="DirectoryChangeIgnored" xml:space="preserve"><value>ディレクトリ変更は対象外です: {Path}</value></data>
+  <data name="DuplicateHashSkipped" xml:space="preserve"><value>Rule {RuleId}: 重複イベントをハッシュ比較でスキップします: {Path}</value></data>
+  <data name="DuplicateRuntimeId" xml:space="preserve"><value>Rule の RuntimeId が重複しています: {RuntimeId}</value></data>
+  <data name="EventDisabled" xml:space="preserve"><value>Rule {RuleId}: 無効化されたイベントを無視しました: {Event} {Path}</value></data>
+  <data name="EventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Ignore=true のマッピングに一致したためイベントをスキップします: {Path}</value></data>
+  <data name="ExtensionSkipped" xml:space="preserve"><value>拡張子フィルターによりスキップします: {Path}</value></data>
+  <data name="HashFailed" xml:space="preserve"><value>ハッシュ計算に失敗しました: {Path}</value></data>
+  <data name="HealthCheckFailed" xml:space="preserve"><value>ターゲット健全性チェックの実行に失敗しました。</value></data>
+  <data name="HealthUnexpectedError" xml:space="preserve"><value>ターゲット健全性チェックで予期しないエラーが発生しました: {Target}</value></data>
+  <data name="HealthWriteProbeFailed" xml:space="preserve"><value>ターゲット健全性の書き込み確認に失敗しました: {Target}</value></data>
+  <data name="InventoryEnumerationError" xml:space="preserve"><value>インベントリ用の列挙処理でエラーが発生しました: {Path}</value></data>
+  <data name="InventoryFailed" xml:space="preserve"><value>起動時インベントリの収集に失敗しました。</value></data>
+  <data name="InventoryMissing" xml:space="preserve"><value>{Label} は存在しません ({Path})。</value></data>
+  <data name="InventorySizeFailed" xml:space="preserve"><value>ファイルサイズの取得に失敗しました: {Path}</value></data>
+  <data name="KeepExisting" xml:space="preserve"><value>Rule {RuleId}: OverwriteExisting=false のため既存ファイルを保持します: {Path}</value></data>
+  <data name="MappingIgnored" xml:space="preserve"><value>Ignore=true のマッピングに一致したためパスを除外します: {Path}</value></data>
+  <data name="MappingInvalidPattern" xml:space="preserve"><value>無効な Pattern のためマッピングをスキップします: {Pattern}. {Error}</value></data>
+  <data name="MappingNotInitializedCopy" xml:space="preserve"><value>パスマッピングが初期化される前に転送処理が要求されました: {Path}</value></data>
+  <data name="MappingNotInitializedDelete" xml:space="preserve"><value>パスマッピングが初期化される前に削除処理が要求されました: {Path}</value></data>
+  <data name="MappingTemplateFailed" xml:space="preserve"><value>テンプレートの展開に失敗したためマッピングをスキップします: {Template}. {Error}</value></data>
+  <data name="MappingUnsafe" xml:space="preserve"><value>マッピング結果が安全な相対パスではないためスキップします: {Template} -&gt; {Candidate}</value></data>
+  <data name="MoveToTrashOperation" xml:space="preserve"><value>ゴミ箱移動</value></data>
+  <data name="MovedToTrash" xml:space="preserve"><value>ファイルをゴミ箱ディレクトリへ移動しました: {Path} -&gt; {Trash}</value></data>
+  <data name="NoRules" xml:space="preserve"><value>有効な rules が設定されていません。appsettings.yaml の rules[] を確認してください。</value></data>
+  <data name="OperationFailed" xml:space="preserve"><value>{Operation} に失敗しました: {Path}</value></data>
+  <data name="OperationFailedWithContext" xml:space="preserve"><value>{Operation} に失敗しました: {Path}. {Context}</value></data>
+  <data name="PathRuleInvalidPattern" xml:space="preserve"><value>PathRules の MatchPattern が無効です: {Pattern}. {Error}</value></data>
+  <data name="PathRuleInvalidTemplate" xml:space="preserve"><value>PathRules の TargetTemplate が無効です: {Template}. {Error}</value></data>
+  <data name="PathRuleInvalidTimeout" xml:space="preserve"><value>PathRules の RegexTimeoutMs には正の値が必要です: {Pattern}</value></data>
+  <data name="PathRuleMissingPattern" xml:space="preserve"><value>PathRules には MatchPattern が必要です。</value></data>
+  <data name="PathRuleMissingTemplate" xml:space="preserve"><value>Ignore=false の PathRules には TargetTemplate が必要です: {Pattern}</value></data>
+  <data name="ReadySourceInfoFailed" xml:space="preserve"><value>Rule {RuleId}: ready 判定中にソース情報を取得できませんでした: {Path}</value></data>
+  <data name="ReadySourceMissing" xml:space="preserve"><value>Rule {RuleId}: ソースファイルが存在しないため ready 判定を中止します: {Path}</value></data>
+  <data name="ReadyTimeout" xml:space="preserve"><value>Rule {RuleId}: ソースファイルの ready 判定がタイムアウトしました: {Path}</value></data>
+  <data name="ReconciliationEnumerationFailed" xml:space="preserve"><value>Failed to enumerate a source file under: {Path}</value></data>
+  <data name="ReconciliationFailed" xml:space="preserve"><value>整合性チェックの実行に失敗しました。</value></data>
+  <data name="ReconciliationInitialSkipped" xml:space="preserve"><value>初回整合性チェックを設定によりスキップしました。</value></data>
+  <data name="ReconciliationMismatchFound" xml:space="preserve"><value>Rule {RuleId}: 整合性チェックで未転送または不整合なファイルを検出しました: {Path}</value></data>
+  <data name="ReconciliationNoHealthyTargets" xml:space="preserve"><value>整合性チェックをスキップしました。健全なターゲットパスがありません。</value></data>
+  <data name="ReconciliationNoTargetPath" xml:space="preserve"><value>Rule {RuleId}: 整合性チェックで有効なターゲットパスを解決できなかったためスキップします: {Path}</value></data>
+  <data name="ReconciliationSourceInfoFailed" xml:space="preserve"><value>Rule {RuleId}: 整合性チェック中にソース情報を取得できませんでした: {Path}</value></data>
+  <data name="ReconciliationTargetInfoFailed" xml:space="preserve"><value>Rule {RuleId}: 整合性チェック中にターゲット情報を取得できませんでした: {Path}</value></data>
+  <data name="RuleIdMissing" xml:space="preserve"><value>設定値 RuleId が未設定です。</value></data>
+  <data name="RuleSourceMissing" xml:space="preserve"><value>Rule {RuleId}: 設定値 SourceRoot が未設定です。</value></data>
+  <data name="RuleSourceNormalizeFailed" xml:space="preserve"><value>Rule {RuleId}: SourceRoot の正規化に失敗しました: {Path}</value></data>
+  <data name="RuleSourceTargetOverlap" xml:space="preserve"><value>Rule {RuleId}: SourceRoot と TargetRoots は互いの配下に設定できません: {SourceRoot} / {TargetRoots}</value></data>
+  <data name="RuleTargetNormalizeFailed" xml:space="preserve"><value>Rule {RuleId}: TargetRoots の正規化に失敗しました: {Path}</value></data>
+  <data name="RuleTargetsMissing" xml:space="preserve"><value>Rule {RuleId}: 設定値 TargetRoots が未設定です。</value></data>
+  <data name="RuntimeQueueChanged" xml:space="preserve"><value>Rule runtime のキュー設定が変更されたため再作成します: {RuntimeId}</value></data>
+  <data name="RuntimeStarted" xml:space="preserve"><value>Rule runtime を開始しました: {RuntimeId}</value></data>
+  <data name="RuntimeStopped" xml:space="preserve"><value>Rule runtime を停止しました: {RuntimeId}</value></data>
+  <data name="SavedTargetStateInitFailed" xml:space="preserve"><value>保存済みのターゲットパス状態の読み込みに失敗しました。状態ファイルを初期化します。</value></data>
+  <data name="SavedTargetStateLoadFailed" xml:space="preserve"><value>保存済みのターゲットパス状態の読み込みに失敗しました。</value></data>
+  <data name="ServiceStartConfigFailed" xml:space="preserve"><value>初期設定の読み込みに失敗しました。構成の更新を待機します。</value></data>
+  <data name="ServiceStarted" xml:space="preserve"><value>サービスが正常に起動しました。</value></data>
+  <data name="ServiceStopped" xml:space="preserve"><value>サービスが停止しました。</value></data>
+  <data name="SkipUnhealthyTarget" xml:space="preserve"><value>Rule {RuleId}: 障害ターゲットをスキップします: {Target}</value></data>
+  <data name="SkippedByIgnoreContext" xml:space="preserve"><value>Ignore=true のマッピングに一致したため{Context}をスキップします: {Path}</value></data>
+  <data name="SourceAlreadyMissing" xml:space="preserve"><value>ソースファイルは既に存在しません: {Path}</value></data>
+  <data name="SourceDeleteAccessDenied" xml:space="preserve"><value>ソース削除中にアクセスが拒否されました: {Path}</value></data>
+  <data name="SourceDeleteFailed" xml:space="preserve"><value>Rule {RuleId}: ソースファイルの削除に失敗しました: {Path}</value></data>
+  <data name="SourceDeleteIoTransient" xml:space="preserve"><value>ソース削除中に一時的な IO エラーが発生しました: {Path}</value></data>
+  <data name="SourceDeleteTimeout" xml:space="preserve"><value>ソースファイルの削除がタイムアウトしました: {Path}</value></data>
+  <data name="SourceDeleted" xml:space="preserve"><value>ソースファイルを削除しました: {Path}</value></data>
+  <data name="SourceDisappearedBeforeCopy" xml:space="preserve"><value>Rule {RuleId}: 転送開始前にソースファイルが消失しました: {Path}</value></data>
+  <data name="SourceNotFound" xml:space="preserve"><value>Rule {RuleId}: ソースファイルが見つかりません: {Path}</value></data>
+  <data name="TargetDirectoryMissing" xml:space="preserve"><value>Rule {RuleId}: 宛先ディレクトリが見つかりません: {Path}</value></data>
+  <data name="TargetRecovered" xml:space="preserve"><value>ターゲット {Target} の状態が回復しました ({State})。{Reason}</value></data>
+  <data name="TargetStateChanged" xml:space="preserve"><value>ターゲット {Target} の状態が変化しました ({State})。{Reason}</value></data>
+  <data name="TargetStateCompactCheckFailed" xml:space="preserve"><value>ターゲットパス状態のコンパクション判定に失敗しました。</value></data>
+  <data name="TargetStateCompactFailed" xml:space="preserve"><value>ターゲットパス状態のコンパクションに失敗しました。</value></data>
+  <data name="TargetStateConsecutiveFailures" xml:space="preserve"><value>ターゲットパス状態の保存に連続して失敗しました。メモリ状態は維持し、後続の保存で復旧を試みます。</value></data>
+  <data name="TargetStateFileDeleteFailed" xml:space="preserve"><value>ターゲットパス状態ファイルの削除に失敗しました: {Path}</value></data>
+  <data name="TargetStateQueueEnqueueFailed" xml:space="preserve"><value>ターゲットパス状態の非同期保存キューへの登録に失敗しました。</value></data>
+  <data name="TargetStateQueueFull" xml:space="preserve"><value>ターゲットパス状態の保存キューが上限に達しました。メモリ状態は維持しますが、状態の永続化は一時的に低下しています。</value></data>
+  <data name="TargetStateRecovered" xml:space="preserve"><value>ターゲットパス状態の保存が復旧しました。</value></data>
+  <data name="TargetStateSaveFailedRetry" xml:space="preserve"><value>ターゲットパス状態の保存に失敗しました。短時間後に再試行します。</value></data>
+  <data name="TargetStateWorkerStopped" xml:space="preserve"><value>ターゲットパス状態の非同期保存ワーカーが停止しました。</value></data>
+  <data name="TargetWriteAccessDenied" xml:space="preserve"><value>Rule {RuleId}: ターゲットへの書き込みでアクセスが拒否されました: {Path}</value></data>
+  <data name="TargetWriteIoTransient" xml:space="preserve"><value>Rule {RuleId}: ターゲットへの書き込みで一時的な IO エラー: {Path}</value></data>
+  <data name="TransferIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Ignore=true のマッピングに一致したため転送をスキップします: {Path}</value></data>
+  <data name="TrashFolderLabel" xml:space="preserve"><value>.trash フォルダー</value></data>
+  <data name="TrashMoveAccessDenied" xml:space="preserve"><value>ゴミ箱への移動中にアクセスが拒否されました: {Path}</value></data>
+  <data name="TrashMoveIoTransient" xml:space="preserve"><value>ゴミ箱への移動中に一時的な IO エラーが発生しました: {Path}</value></data>
+  <data name="TrashMoveTimeout" xml:space="preserve"><value>ゴミ箱への移動がタイムアウトしました: {Path}</value></data>
+  <data name="Usage" xml:space="preserve"><value>FileTransfer {0}
+
+使用方法:
+  FileTransfer --config &lt;appsettings.yaml&gt;
+  FileTransfer --validate --config &lt;appsettings.yaml&gt;
+  FileTransfer --version
+
+オプション:
+  -c, --config &lt;path&gt;     YAML 設定ファイルのパス。
+      --validate          設定を検証して終了します。
+      --version           バージョンを表示して終了します。
+  -h, --help              このヘルプを表示します。</value></data>
+  <data name="WatchedFolderLabel" xml:space="preserve"><value>監視元フォルダー</value></data>
+  <data name="WatcherErrorRestart" xml:space="preserve"><value>ファイル監視でエラーが発生したため再起動をスケジュールします。</value></data>
+  <data name="WatcherRestartFailed" xml:space="preserve"><value>ファイル監視の再起動に失敗しました。再試行します。</value></data>
+  <data name="WatcherRestarted" xml:space="preserve"><value>ファイル監視を再起動しました（試行 {Attempt} 回目）</value></data>
+  <data name="WatcherSourceMissing" xml:space="preserve"><value>監視対象フォルダーが見つかりません: {Path}</value></data>
+  <data name="WatcherStopFailed" xml:space="preserve"><value>ファイル監視の停止に失敗しました。</value></data>
+  <data name="BytesUnit" xml:space="preserve"><value>バイト</value></data>
+  <data name="CopyContext" xml:space="preserve"><value>転送処理</value></data>
+  <data name="CopySucceededHealthReason" xml:space="preserve"><value>コピーが成功しました。</value></data>
+  <data name="DeleteSyncContext" xml:space="preserve"><value>削除同期</value></data>
+  <data name="DirectoryNotFoundReason" xml:space="preserve"><value>ディレクトリが見つかりません。</value></data>
+  <data name="FileChangeChanged" xml:space="preserve"><value>更新</value></data>
+  <data name="FileChangeCreated" xml:space="preserve"><value>作成</value></data>
+  <data name="FileChangeDeleted" xml:space="preserve"><value>削除</value></data>
+  <data name="FileChangeRenamed" xml:space="preserve"><value>名前変更</value></data>
+  <data name="FileChangeUnknown" xml:space="preserve"><value>不明</value></data>
+  <data name="HealthCheckFailedReason" xml:space="preserve"><value>ヘルスチェックで障害が検出されました。</value></data>
+  <data name="HealthCheckSucceededReason" xml:space="preserve"><value>ヘルスチェックに成功しました。</value></data>
+  <data name="HealthStateHealthy" xml:space="preserve"><value>正常</value></data>
+  <data name="HealthStateUnhealthy" xml:space="preserve"><value>異常</value></data>
+  <data name="InventorySummary" xml:space="preserve"><value>{Label}: パス={Path} / サブディレクトリ={Dirs} 件 / ファイル={Files} 件 / 合計サイズ={Size}</value></data>
+  <data name="InventorySummaryWithAdvice" xml:space="preserve"><value>{Label}: パス={Path} / サブディレクトリ={Dirs} 件 / ファイル={Files} 件 / 合計サイズ={Size}。不要データが溜まっている場合は削除や退避をご検討ください。</value></data>
+  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: 整合性チェックはリソース上限に達したため次回に継続します。Scanned={Scanned}, MaxFiles={MaxFiles}</value></data>
+  <data name="RuleApplied" xml:space="preserve"><value>Rule {RuleId} を適用しました。監視パス: {Path} / TargetMode: {TargetMode}</value></data>
+  <data name="WriteAccessDeniedReason" xml:space="preserve"><value>書き込み時にアクセスが拒否されました。</value></data>
+  <data name="WriteIoErrorReason" xml:space="preserve"><value>書き込み時に IO エラーが発生しました。</value></data>
+  <data name="PathRuleRegexTimeout" xml:space="preserve"><value>PathRule regex がタイムアウトしたためスキップします: {Pattern}</value></data>
+</root>

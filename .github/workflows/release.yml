@@ -1,0 +1,79 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-test-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore FileTransfer.sln
+
+      - name: Build
+        run: dotnet build FileTransfer.sln -c Release --no-restore
+
+      - name: Test
+        run: dotnet test FileTransfer.sln -c Release --no-build
+
+      - name: Publish Windows x64
+        run: dotnet publish FileTransfer/FileTransfer.csproj -c Release -r win-x64 -o artifacts/win-x64
+
+      - name: Publish Linux x64
+        run: dotnet publish FileTransfer/FileTransfer.csproj -c Release -r linux-x64 -o artifacts/linux-x64
+
+      - name: Prepare release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/FileTransfer-win-x64 dist/FileTransfer-linux-x64
+          cp -R artifacts/win-x64/* dist/FileTransfer-win-x64/
+          cp -R artifacts/linux-x64/* dist/FileTransfer-linux-x64/
+          cp README.md README.ja.md README.zh.md LICENSE THIRD-PARTY-NOTICES.md CHANGELOG.md SECURITY.md dist/FileTransfer-win-x64/
+          cp README.md README.ja.md README.zh.md LICENSE THIRD-PARTY-NOTICES.md CHANGELOG.md SECURITY.md dist/FileTransfer-linux-x64/
+          cp -R examples dist/FileTransfer-win-x64/
+          cp -R examples dist/FileTransfer-linux-x64/
+          (cd dist && zip -r FileTransfer-win-x64.zip FileTransfer-win-x64 >/dev/null)
+          (cd dist && tar -czf FileTransfer-linux-x64.tar.gz FileTransfer-linux-x64)
+          (cd dist && sha256sum FileTransfer-win-x64.zip FileTransfer-linux-x64.tar.gz > checksums.txt)
+
+      - name: Smoke test published binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x artifacts/linux-x64/FileTransfer
+          artifacts/linux-x64/FileTransfer --version
+          artifacts/linux-x64/FileTransfer --validate --config artifacts/linux-x64/appsettings.yaml
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets
+          path: |
+            dist/FileTransfer-win-x64.zip
+            dist/FileTransfer-linux-x64.tar.gz
+            dist/checksums.txt
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            dist/FileTransfer-win-x64.zip \
+            dist/FileTransfer-linux-x64.tar.gz \
+            dist/checksums.txt \
+            --title "FileTransfer ${GITHUB_REF_NAME}" \
+            --notes-file CHANGELOG.md

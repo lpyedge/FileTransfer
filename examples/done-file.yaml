@@ -1,0 +1,15 @@
+version: 2
+rules:
+  - id: done-file-input
+    sourceRoots:
+      - C:\BatchOutput
+    targetRoots:
+      - \\NAS01\BatchInput
+    readySignal:
+      mode: DoneFile
+      doneFileSuffix: .done
+    pathRules:
+      - matchPattern: ^(?<path>.+)$
+        targetTemplate: '{path}'
+logging:
+  language: auto

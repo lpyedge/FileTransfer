@@ -1,0 +1,30 @@
+version: 2
+
+paths:
+  # Optional. Relative paths are resolved from the executable directory.
+  stateDir: ./state
+  logDir: ./logs
+
+rules:
+  - id: default
+    sourceRoots:
+      - C:\Inbox
+    targetRoots:
+      - \\NAS01\Shared
+    targetMode: FirstAvailable
+    pathRules:
+      - matchPattern: ^(?<date>\d{8})[\\/](?<file>.+)$
+        targetTemplate: '{date}/{file}'
+
+logging:
+  # auto follows the service account's UI culture / locale.
+  # Supported values: auto, en, ja, zh-Hant.
+  language: auto
+  logLevel:
+    default: Information
+    system: Warning
+    microsoft: Warning
+  file:
+    path: app_{0:yyyyMMdd}.log
+    fileSizeLimitBytes: 10485760
+    minLevel: Information
