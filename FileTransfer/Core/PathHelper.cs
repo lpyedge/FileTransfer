@@ -112,9 +112,7 @@ internal static class PathHelper
 
     public static string BuildStagingPath(string destinationPath)
     {
-        var directory = Path.GetDirectoryName(destinationPath) ?? string.Empty;
-        var fileName = Path.GetFileName(destinationPath);
-        return Path.Combine(directory, ".filetransfer-staging", $"{fileName}.{Guid.NewGuid():N}.tmp");
+        return $"{destinationPath}.{Guid.NewGuid():N}.tmp";
     }
 
     public static string GetUniqueFilePath(string initialPath)

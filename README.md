@@ -69,6 +69,7 @@ rules:
     targetRoots:
       - \\NAS01\Shared
     targetMode: FirstAvailable
+    backupDeletedTargetsToTrash: false
     pathRules:
       - matchPattern: ^(?<date>\d{8})[\\/](?<file>.+)$
         targetTemplate: '{date}/{file}'
@@ -152,6 +153,15 @@ Structured fields such as `RuleId`, `RuntimeId`, `SourcePath`, and `TargetPath` 
 |---|---:|---|
 | `LengthAndTimestamp` | Low | Default and recommended. |
 | `Hash` | High | Stronger but expensive on NAS/SMB shares. |
+
+### Delete handling and transient target files
+
+`watchEvents.deleted` only controls whether source-side delete events are observed.
+`backupDeletedTargetsToTrash` defaults to `false`. With the default, delete events clear runtime delete state and keep existing target files in place. Set it to `true` only when matched target files should be moved under `.trash`.
+
+Target health checks write a hidden transient `.filetransfer-health.*.probe` file directly under each target root and delete it immediately after the check. A leftover probe file usually indicates a target permission or cleanup failure.
+
+Copies stream into a unique sibling `.tmp` file in the destination directory and rename it into the final path only after a successful write. FileTransfer does not create `.filetransfer-staging` directories.
 
 ## Windows Service registration
 

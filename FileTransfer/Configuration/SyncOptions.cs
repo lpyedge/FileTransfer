@@ -33,6 +33,7 @@ internal sealed class SyncOptions
     public int MaxRetryDelayMs { get; set; } = 3000;
     public int OperationTimeoutMs { get; set; } = 300000;
     public int HealthCheckIntervalMs { get; set; } = 10000;
+    public bool BackupDeletedTargetsToTrash { get; set; }
     public string[]? NotifyFilters { get; set; }
 
     public string RuntimeKey => RuntimeId;
@@ -117,6 +118,7 @@ internal sealed class SyncOptions
         MaxRetryDelayMs = MaxRetryDelayMs,
         OperationTimeoutMs = OperationTimeoutMs,
         HealthCheckIntervalMs = HealthCheckIntervalMs,
+        BackupDeletedTargetsToTrash = BackupDeletedTargetsToTrash,
         NotifyFilters = NotifyFilters?.ToArray()
     };
 
@@ -368,6 +370,7 @@ internal sealed class SyncOptions
         public int MaxRetryDelayMs { get; init; } = 3000;
         public int OperationTimeoutMs { get; init; } = 300000;
         public int HealthCheckIntervalMs { get; init; } = 10000;
+        public bool BackupDeletedTargetsToTrash { get; init; }
         public string[]? NotifyFilters { get; init; }
 
         public static SyncRuleOptions FromConfiguration(IConfigurationSection section, int index)
@@ -406,6 +409,7 @@ internal sealed class SyncOptions
             ReadInt(section, nameof(MaxRetryDelayMs), value => options.MaxRetryDelayMs = value);
             ReadInt(section, nameof(OperationTimeoutMs), value => options.OperationTimeoutMs = value);
             ReadInt(section, nameof(HealthCheckIntervalMs), value => options.HealthCheckIntervalMs = value);
+            ReadBool(section, nameof(BackupDeletedTargetsToTrash), value => options.BackupDeletedTargetsToTrash = value);
             ReadEnum<TargetMode>(section, nameof(TargetMode), value => options.TargetMode = value);
             ReadComparisonMode(section, value => options.ComparisonMode = value);
             options.ReadySignal = ReadySignalOptions.FromConfiguration(section.GetSection(nameof(ReadySignal)));
@@ -450,6 +454,7 @@ internal sealed class SyncOptions
                     MaxRetryDelayMs = MaxRetryDelayMs,
                     OperationTimeoutMs = OperationTimeoutMs,
                     HealthCheckIntervalMs = HealthCheckIntervalMs,
+                    BackupDeletedTargetsToTrash = BackupDeletedTargetsToTrash,
                     NotifyFilters = NotifyFilters?.ToArray()
                 };
 
@@ -488,6 +493,7 @@ internal sealed class SyncOptions
             public int MaxRetryDelayMs { get; set; } = 3000;
             public int OperationTimeoutMs { get; set; } = 300000;
             public int HealthCheckIntervalMs { get; set; } = 10000;
+            public bool BackupDeletedTargetsToTrash { get; set; }
             public string[]? NotifyFilters { get; set; }
 
             public SyncRuleOptions Build() => new()
@@ -520,6 +526,7 @@ internal sealed class SyncOptions
                 MaxRetryDelayMs = MaxRetryDelayMs,
                 OperationTimeoutMs = OperationTimeoutMs,
                 HealthCheckIntervalMs = HealthCheckIntervalMs,
+                BackupDeletedTargetsToTrash = BackupDeletedTargetsToTrash,
                 NotifyFilters = NotifyFilters
             };
         }

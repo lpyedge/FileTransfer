@@ -73,11 +73,10 @@ internal sealed class TargetHealthMonitor : IDisposable
 
     private bool Evaluate(string targetRoot, SyncOptions settings)
     {
-        var probeDirectory = Path.Combine(targetRoot, ".filetransfer-health");
         var runtimePart = SanitizeFileName(settings.RuntimeId);
         var probePath = Path.Combine(
-            probeDirectory,
-            $"{Environment.MachineName}.{Environment.ProcessId}.{runtimePart}.{Guid.NewGuid():N}.probe");
+            targetRoot,
+            $".filetransfer-health.{Environment.MachineName}.{Environment.ProcessId}.{runtimePart}.{Guid.NewGuid():N}.probe");
 
         try
         {
@@ -86,8 +85,8 @@ internal sealed class TargetHealthMonitor : IDisposable
                 return false;
             }
 
-            Directory.CreateDirectory(probeDirectory);
             File.WriteAllText(probePath, DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture));
+            TryMarkProbeHidden(probePath);
             File.Delete(probePath);
             return true;
         }
@@ -112,6 +111,26 @@ internal sealed class TargetHealthMonitor : IDisposable
             if (File.Exists(probePath))
             {
                 File.Delete(probePath);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static void TryMarkProbeHidden(string probePath)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        try
+        {
+            var attributes = File.GetAttributes(probePath);
+            if ((attributes & FileAttributes.Hidden) == 0)
+            {
+                File.SetAttributes(probePath, attributes | FileAttributes.Hidden);
             }
         }
         catch

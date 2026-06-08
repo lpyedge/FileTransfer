@@ -275,7 +275,8 @@ public class InfrastructureTests
         var settings = new SyncOptions
         {
             SourceRoot = source,
-            TargetRoots = new[] { target }
+            TargetRoots = new[] { target },
+            BackupDeletedTargetsToTrash = true
         };
 
         reporter.LogIfNeeded(settings);
@@ -286,6 +287,37 @@ public class InfrastructureTests
         Assert.Contains(infoEntries, entry => entry.Message.Contains("監視元フォルダー"));
         Assert.Contains(infoEntries, entry => entry.Message.Contains("転送先フォルダー (1)") && entry.Message.Contains("サブディレクトリ=1 件") && entry.Message.Contains("ファイル=1 件"));
         Assert.Contains(infoEntries, entry => entry.Message.Contains(".trash フォルダー") && entry.Message.Contains("不要データ"));
+    }
+
+    [Fact]
+    public void StartupInventoryReporter_DoesNotLogTrashSummaryWhenTrashBackupDisabled()
+    {
+        using var culture = TestCultureScope.Use("ja");
+        using var temp = new TempRoot();
+        var logger = new ListLogger();
+        var source = temp.CreateDir("source");
+        var target = temp.CreateDir("target");
+        var targetData = Path.Combine(target, "live");
+        var trash = Path.Combine(target, ".trash");
+        Directory.CreateDirectory(targetData);
+        Directory.CreateDirectory(trash);
+        File.WriteAllText(Path.Combine(source, "one.txt"), "abc");
+        File.WriteAllText(Path.Combine(targetData, "two.txt"), "12345");
+        File.WriteAllText(Path.Combine(trash, "old.txt"), "should-not-be-logged");
+
+        var reporter = new StartupInventoryReporter(logger);
+        reporter.LogIfNeeded(new SyncOptions
+        {
+            SourceRoot = source,
+            TargetRoots = new[] { target },
+            BackupDeletedTargetsToTrash = false
+        });
+
+        var infoEntries = logger.Entries.Where(entry => entry.Level == LogLevel.Information).ToArray();
+        Assert.Equal(2, infoEntries.Length);
+        Assert.Contains(infoEntries, entry => entry.Message.Contains("監視元フォルダー"));
+        Assert.Contains(infoEntries, entry => entry.Message.Contains("転送先フォルダー (1)"));
+        Assert.DoesNotContain(infoEntries, entry => entry.Message.Contains(".trash フォルダー"));
     }
 
     [Fact]

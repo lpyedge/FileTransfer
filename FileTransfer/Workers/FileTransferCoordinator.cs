@@ -311,6 +311,12 @@ internal sealed class FileTransferCoordinator : IDisposable
                     continue;
                 }
 
+                if (!settings.BackupDeletedTargetsToTrash)
+                {
+                    ForgetDeletedTargetState(sourcePath, candidate, settings);
+                    continue;
+                }
+
                 try
                 {
                     await MoveToTrashWithRetryAsync(sourcePath, candidate, settings, mapper, ct).ConfigureAwait(false);
@@ -949,8 +955,7 @@ internal sealed class FileTransferCoordinator : IDisposable
                 if (!File.Exists(destPath))
                 {
                     _logger.LogDebug(LogText.Get("DestinationAlreadyDeleted"), destPath);
-                    Fingerprints.TryRemove(sourcePath, out _);
-                    RemoveResolvedTargetPath(sourcePath, PathHelper.GetContainingRoot(destPath, settings.TargetRoots));
+                    ForgetDeletedTargetState(sourcePath, destPath, settings);
                     return;
                 }
 
@@ -966,22 +971,19 @@ internal sealed class FileTransferCoordinator : IDisposable
                 File.Move(destPath, finalTrashPath);
 
                 _deletedCounter.Add(1);
-                Fingerprints.TryRemove(sourcePath, out _);
-                RemoveResolvedTargetPath(sourcePath, PathHelper.GetContainingRoot(destPath, settings.TargetRoots));
+                ForgetDeletedTargetState(sourcePath, destPath, settings);
 
                 _logger.LogInformation(LogText.Get("MovedToTrash"), destPath, finalTrashPath);
                 return;
             }
             catch (FileNotFoundException)
             {
-                Fingerprints.TryRemove(sourcePath, out _);
-                RemoveResolvedTargetPath(sourcePath, PathHelper.GetContainingRoot(destPath, settings.TargetRoots));
+                ForgetDeletedTargetState(sourcePath, destPath, settings);
                 return;
             }
             catch (DirectoryNotFoundException)
             {
-                Fingerprints.TryRemove(sourcePath, out _);
-                RemoveResolvedTargetPath(sourcePath, PathHelper.GetContainingRoot(destPath, settings.TargetRoots));
+                ForgetDeletedTargetState(sourcePath, destPath, settings);
                 return;
             }
             catch (OperationCanceledException)
@@ -1010,6 +1012,12 @@ internal sealed class FileTransferCoordinator : IDisposable
     private void RemoveResolvedTargetPath(string sourcePath, string? targetRoot) => _resolvedTargets.Remove(sourcePath, targetRoot);
 
     private void RemoveResolvedTargetRoots(string sourcePath) => _resolvedTargets.RemoveSource(sourcePath, _getSyncOptions().TargetRoots);
+
+    private void ForgetDeletedTargetState(string sourcePath, string destPath, SyncOptions settings)
+    {
+        Fingerprints.TryRemove(sourcePath, out _);
+        RemoveResolvedTargetPath(sourcePath, PathHelper.GetContainingRoot(destPath, settings.TargetRoots));
+    }
 
     private static void EnsureTrashAttributes(string trashDir)
     {

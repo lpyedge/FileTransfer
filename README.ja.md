@@ -69,6 +69,7 @@ rules:
     targetRoots:
       - \\NAS01\Shared
     targetMode: FirstAvailable
+    backupDeletedTargetsToTrash: false
     pathRules:
       - matchPattern: ^(?<date>\d{8})[\\/](?<file>.+)$
         targetTemplate: '{date}/{file}'
@@ -153,6 +154,15 @@ Windows Service や systemd では、現在ログイン中のユーザーの言�
 |---|---:|---|
 | `LengthAndTimestamp` | 低 | 既定値、推奨。 |
 | `Hash` | 高 | より強い検証。NAS/SMB では負荷に注意。 |
+
+### 削除イベントと target 側の一時ファイル
+
+`watchEvents.deleted` は source 側の削除イベントを受け取るかどうかだけを制御します。
+`backupDeletedTargetsToTrash` の既定値は `false` です。既定のままでは削除イベント時に runtime の削除状態だけを整理し、既存の target ファイルはその場に残します。対応する target ファイルを `.trash` へ退避したい場合だけ `true` を明示してください。
+
+target 健全性チェックは、各 target root 直下に隠し属性付きの瞬時 `.filetransfer-health.*.probe` ファイルを書き込み、確認後すぐ削除します。probe ファイルが残る場合は、権限または削除失敗を疑ってログと合わせて確認してください。
+
+コピー中は、最終出力先と同じディレクトリに一意な `.tmp` 一時ファイルを書き込み、成功後に正式名へ rename します。FileTransfer は `.filetransfer-staging` ディレクトリを作成しません。
 
 ## Windows Service 登録
 

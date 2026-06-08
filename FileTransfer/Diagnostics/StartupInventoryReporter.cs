@@ -31,7 +31,7 @@ internal sealed class StartupInventoryReporter
                 LogDirectorySummary(string.Format(CultureInfo.InvariantCulture, LogText.Get("DestinationFolderLabel"), i + 1), target, summary);
             }
 
-            if (settings.TargetRoots.Length > 0)
+            if (settings.BackupDeletedTargetsToTrash && settings.TargetRoots.Length > 0)
             {
                 var trashPath = Path.Combine(settings.TargetRoots[0], TrashFolderName);
                 var trash = CaptureDirectorySummary(trashPath);

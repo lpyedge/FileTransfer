@@ -38,6 +38,7 @@ public class SyncOptionsTests
         Assert.Equal(300000, settings.OperationTimeoutMs);
         Assert.Equal(60000, settings.ReconciliationIntervalMs);
         Assert.Equal(10000, settings.HealthCheckIntervalMs);
+        Assert.False(settings.BackupDeletedTargetsToTrash);
     }
 
     [Fact]
@@ -72,6 +73,7 @@ public class SyncOptionsTests
             SkipInitialScan = true,
             ComparisonMode = ComparisonMode.Hash,
             NotifyFilters = new[] { "FileName", "LastWrite" },
+            BackupDeletedTargetsToTrash = true,
             WatchEvents = new WatchEventOptions
             {
                 Created = false,
@@ -101,6 +103,7 @@ public class SyncOptionsTests
         Assert.False(settings.WatchEvents.Created);
         Assert.Equal("Mapped/{tail}", settings.PathRules[0].TargetTemplate);
         Assert.True(settings.SkipInitialScan);
+        Assert.True(settings.BackupDeletedTargetsToTrash);
     }
 
     [Fact]
@@ -134,6 +137,7 @@ public class SyncOptionsTests
             ["Rules:0:MaxRetryDelayMs"] = "900",
             ["Rules:0:OperationTimeoutMs"] = "12000",
             ["Rules:0:HealthCheckIntervalMs"] = "3000",
+            ["Rules:0:BackupDeletedTargetsToTrash"] = "true",
             ["Rules:0:ComparisonMode"] = "Hash",
             ["Rules:0:NotifyFilters:0"] = "FileName",
             ["Rules:0:NotifyFilters:1"] = "LastWrite"
@@ -171,6 +175,7 @@ public class SyncOptionsTests
         Assert.Equal(900, settings.MaxRetryDelayMs);
         Assert.Equal(12000, settings.OperationTimeoutMs);
         Assert.Equal(3000, settings.HealthCheckIntervalMs);
+        Assert.True(settings.BackupDeletedTargetsToTrash);
         Assert.Equal(new[] { "FileName", "LastWrite" }, settings.NotifyFilters);
     }
 
@@ -201,6 +206,27 @@ public class SyncOptionsTests
         Assert.NotNull(settings.PathRules[0].RegexError);
         Assert.DoesNotMatch(settings.PathRules[0].RegexPattern, "anything");
     }
+
+    [Fact]
+    public void FromConfiguration_DefaultsTrashBackupToFalseWhenSettingIsMissing()
+    {
+        var values = new Dictionary<string, string?>
+        {
+            ["Rules:0:SourceRoot"] = @"C:\Inbox",
+            ["Rules:0:TargetRoots:0"] = @"D:\Archive",
+            ["Rules:0:WatchEvents:Deleted"] = "true"
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(values)
+            .Build();
+
+        var settings = SyncOptions.FromConfiguration(configuration);
+
+        Assert.True(settings.WatchEvents.Deleted);
+        Assert.False(settings.BackupDeletedTargetsToTrash);
+    }
+
     [Fact]
     public void FromConfiguration_PreservesDefaultFileExtensionsWhenSectionIsMissing()
     {

@@ -54,6 +54,35 @@ public class ReleaseReadinessTests
     }
 
     [Fact]
+    public void FullConfiguration_ExplicitlyKeepsTrashBackupDisabledByDefault()
+    {
+        var config = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "FileTransfer", "appsettings.full.yaml"));
+
+        Assert.Contains("backupDeletedTargetsToTrash: false", config, StringComparison.Ordinal);
+        Assert.DoesNotContain("backupDeletedTargetsToTrash: true", config, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PublicExampleConfigs_ExplicitlyKeepTrashBackupDisabledByDefault()
+    {
+        var root = FindRepositoryRoot();
+        var exampleConfigs = new[]
+        {
+            Path.Combine(root, "FileTransfer", "appsettings.yaml"),
+            Path.Combine(root, "FileTransfer", "appsettings.full.yaml"),
+            Path.Combine(root, "examples", "all-healthy-targets.yaml"),
+            Path.Combine(root, "examples", "done-file.yaml")
+        };
+
+        foreach (var configPath in exampleConfigs)
+        {
+            var content = File.ReadAllText(configPath);
+            Assert.Contains("backupDeletedTargetsToTrash: false", content, StringComparison.Ordinal);
+            Assert.DoesNotContain("backupDeletedTargetsToTrash: true", content, StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
     public void DotnetTenTesting_UsesMicrosoftTestingPlatformNativeRunner()
     {
         var root = FindRepositoryRoot();
@@ -95,6 +124,10 @@ public class ReleaseReadinessTests
             Assert.Contains("--config", content, StringComparison.Ordinal);
             Assert.Contains("logging.language", content, StringComparison.Ordinal);
             Assert.Contains("Microsoft.Testing.Platform", content, StringComparison.Ordinal);
+            Assert.Contains("backupDeletedTargetsToTrash", content, StringComparison.Ordinal);
+            Assert.Contains(".trash", content, StringComparison.Ordinal);
+            Assert.Contains(".tmp", content, StringComparison.Ordinal);
+            Assert.Contains(".filetransfer-health", content, StringComparison.Ordinal);
         }
     }
 

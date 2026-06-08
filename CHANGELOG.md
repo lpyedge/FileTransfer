@@ -2,6 +2,15 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Changed
+
+- Target health checks now use transient probe files written directly under each target root and delete them immediately after each check.
+- In-flight copies now use a unique sibling `.tmp` file in the destination directory instead of creating `.filetransfer-staging` directories.
+- Delete handling keeps existing target files in place by default. `.trash` backups now require `backupDeletedTargetsToTrash: true`.
+- Public README files and example YAML documents were updated to describe the new delete and transient-file behavior.
+
 ## 1.0.0 - 2026-06-03
 
 ### Added

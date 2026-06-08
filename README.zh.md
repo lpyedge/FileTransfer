@@ -69,6 +69,7 @@ rules:
     targetRoots:
       - \\NAS01\Shared
     targetMode: FirstAvailable
+    backupDeletedTargetsToTrash: false
     pathRules:
       - matchPattern: ^(?<date>\d{8})[\\/](?<file>.+)$
         targetTemplate: '{date}/{file}'
@@ -152,6 +153,15 @@ Windows Service 或 systemd 下可能與目前登入使用者語言不同；生�
 |---|---:|---|
 | `LengthAndTimestamp` | 低 | 預設、建議值。 |
 | `Hash` | 高 | 較強驗證，但在 NAS/SMB 上成本較高。 |
+
+### 刪除事件與 target 暫存檔
+
+`watchEvents.deleted` 只控制是否接收 source 端的刪除事件。
+`backupDeletedTargetsToTrash` 預設為 `false`。維持預設時，刪除事件只會清除 runtime 的刪除狀態，既有 target 檔會保留原位；只有明確設成 `true` 時，對應 target 檔才會搬到 `.trash`。
+
+target 健康檢查會直接在每個 target root 下寫入隱藏的瞬時 `.filetransfer-health.*.probe` 檔，檢查後立即刪除。若仍殘留 probe 檔，通常代表 target 權限或清理失敗，應搭配日誌一併排查。
+
+檔案複製時會先在目標目錄同層建立唯一的 `.tmp` 暫存檔，成功後再 rename 成正式檔名。FileTransfer 不會建立 `.filetransfer-staging` 目錄。
 
 ## Windows Service 註冊
 

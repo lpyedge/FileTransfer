@@ -58,6 +58,10 @@ rules:
     # Hash is stronger but costs more CPU and disk IO.
     verificationMode: LengthAndTimestamp
 
+    # Copies are written to a unique sibling .tmp file in the destination directory
+    # and renamed into place only after a successful write. No .filetransfer-staging
+    # directory is created.
+
     # File readiness detection before copy.
     # StableSize is the recommended default for scanners, SMB shares, and batch output folders.
     # RenameOnly assumes the producer writes a temporary file and renames it only after completion.
@@ -95,7 +99,7 @@ rules:
     maxReconciliationFilesPerRun: 10000
     maxReconciliationDurationMs: 30000
 
-    # Target health checks use unique lightweight write/delete probe files under .filetransfer-health.
+    # Target health checks use transient probe files written directly under each target root.
     healthCheckIntervalMs: 10000
 
     # FileSystemWatcher events.
@@ -105,6 +109,10 @@ rules:
       created: true
       changed: true
       deleted: false
+
+    # When true, external source deletes move matched target files into .trash.
+    # When false, delete events only clear runtime state and keep existing target files in place.
+    backupDeletedTargetsToTrash: false
 
     # Optional FileSystemWatcher notify filters.
     # If omitted, FileName + DirectoryName + LastWrite are used.

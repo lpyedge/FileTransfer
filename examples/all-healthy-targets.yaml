@@ -10,6 +10,7 @@ rules:
       - /mnt/nas-a/scanner
       - /mnt/nas-b/scanner
     targetMode: AllHealthyTargets
+    backupDeletedTargetsToTrash: false
     pathRules:
       - matchPattern: ^(?<date>\d{8})/(?<file>.+)$
         targetTemplate: '{date}/{file}'

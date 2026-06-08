@@ -12,6 +12,7 @@ rules:
     targetRoots:
       - \\NAS01\Shared
     targetMode: FirstAvailable
+    backupDeletedTargetsToTrash: false
     pathRules:
       - matchPattern: ^(?<date>\d{8})[\\/](?<file>.+)$
         targetTemplate: '{date}/{file}'

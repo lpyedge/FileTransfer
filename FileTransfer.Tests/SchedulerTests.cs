@@ -112,7 +112,7 @@ public class SchedulerTests
         var settings = new SyncOptions
         {
             TargetRoots = new[] { healthyTarget, missingTarget },
-            HealthCheckIntervalMs = 1
+            HealthCheckIntervalMs = 1000
         };
 
         using var monitor = new TargetHealthMonitor(logger, registry, () => settings);
@@ -124,5 +124,6 @@ public class SchedulerTests
 
         Assert.True(registry.IsHealthy(healthyTarget));
         Assert.False(registry.IsHealthy(missingTarget));
+        Assert.Empty(Directory.EnumerateFileSystemEntries(healthyTarget, ".filetransfer-health*", SearchOption.TopDirectoryOnly));
     }
 }

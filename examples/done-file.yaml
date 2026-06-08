@@ -5,6 +5,7 @@ rules:
       - C:\BatchOutput
     targetRoots:
       - \\NAS01\BatchInput
+    backupDeletedTargetsToTrash: false
     readySignal:
       mode: DoneFile
       doneFileSuffix: .done

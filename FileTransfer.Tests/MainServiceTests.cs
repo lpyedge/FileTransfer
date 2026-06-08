@@ -23,6 +23,29 @@ public class MainServiceTests
     }
 
     [Fact]
+    public async Task CreatedFile_DoesNotLeaveStagingDirectoryOrTempFiles()
+    {
+        using var temp = new TempRoot();
+        var settings = CreateDefaultSyncOptions(temp);
+
+        await WithServiceAsync(settings, async service =>
+        {
+            var sourceDir = Path.Combine(settings.SourceRoot, "A1");
+            Directory.CreateDirectory(sourceDir);
+            var sourceFile = Path.Combine(sourceDir, "clean-copy.txt");
+            await File.WriteAllTextAsync(sourceFile, "payload", TestContext.Current.CancellationToken);
+
+            var targetDir = Path.Combine(settings.TargetRoots[0], "Mapped");
+            var destFile = Path.Combine(targetDir, "M_clean-copy.txt");
+            await WaitForFileExistsAsync(destFile, TimeSpan.FromSeconds(5));
+            await WaitForFileContentAsync(destFile, "payload", TimeSpan.FromSeconds(5));
+
+            Assert.False(Directory.Exists(Path.Combine(targetDir, ".filetransfer-staging")));
+            Assert.False(Directory.EnumerateFiles(targetDir, "*.tmp", SearchOption.TopDirectoryOnly).Any());
+        });
+    }
+
+    [Fact]
     public async Task MultiTarget_DeleteOnOneMissingTarget_PreservesOtherResolvedPaths()
     {
         using var temp = new TempRoot();
@@ -151,6 +174,31 @@ public class MainServiceTests
         });
     }
 
+    [Fact]
+    public async Task DeletedFile_WithTrashBackupDisabled_KeepsTargetAndDoesNotCreateTrash()
+    {
+        using var temp = new TempRoot();
+        var settings = CreateDefaultSyncOptions(temp);
+        settings.BackupDeletedTargetsToTrash = false;
+
+        await WithServiceAsync(settings, async service =>
+        {
+            var sourceDir = Path.Combine(settings.SourceRoot, "A1");
+            Directory.CreateDirectory(sourceDir);
+            var sourceFile = Path.Combine(sourceDir, "keep-target.txt");
+            await File.WriteAllTextAsync(sourceFile, "payload", TestContext.Current.CancellationToken);
+
+            var destFile = Path.Combine(settings.TargetRoots[0], "Mapped", "M_keep-target.txt");
+            await WaitForFileExistsAsync(destFile, TimeSpan.FromSeconds(5));
+
+            File.Delete(sourceFile);
+            await Task.Delay(TimeSpan.FromSeconds(1), TestContext.Current.CancellationToken);
+
+            Assert.True(File.Exists(destFile));
+            Assert.False(Directory.Exists(Path.Combine(settings.TargetRoots[0], ".trash")));
+        });
+    }
+
     // リネームイベントでは新旧両方のコピーが保持されることを確認し、誤削除を防ぐ
     [Fact]
     public async Task RenamedFile_CopiesNewAndKeepsOldTarget()
@@ -221,9 +269,9 @@ public class MainServiceTests
         });
     }
 
-    // 孤立したターゲットファイル（ソースに存在しない）が定期処理で .trash へ移動されることを確認する
+    // 孤立したターゲットファイル（ソースに存在しない）は一方向転送のためそのまま残ることを確認する
     [Fact]
-    public async Task Reconciliation_MovesOrphanTargetToTrash()
+    public async Task Reconciliation_LeavesOrphanTargetUntouched()
     {
         using var temp = new TempRoot();
         var settings = CreateDefaultSyncOptions(temp);
@@ -997,6 +1045,7 @@ public class MainServiceTests
                 Changed = true,
                 Deleted = true
             },
+            BackupDeletedTargetsToTrash = true,
 
             /**********************************************************************************************/
 
@@ -1082,6 +1131,7 @@ public class MainServiceTests
                 Changed = true,
                 Deleted = true
             },
+            BackupDeletedTargetsToTrash = true,
             InitialRetryDelayMs = 50,
             MaxRetryDelayMs = 200,
             OperationTimeoutMs = 10_000,
@@ -1111,6 +1161,7 @@ public class MainServiceTests
                 Changed = true,
                 Deleted = true
             },
+            BackupDeletedTargetsToTrash = true,
             InitialRetryDelayMs = 50,
             MaxRetryDelayMs = 200,
             OperationTimeoutMs = 10_000,
