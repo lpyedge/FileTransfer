@@ -4,9 +4,9 @@ internal sealed class MainService : BackgroundService
 
     private readonly ILogger<MainService> _logger;
     private readonly ISyncOptionsProvider _settingsProvider;
+    private readonly AppPathsOptions _appPaths;
     private readonly PathTemplateRenderer _templateRenderer = new();
     private readonly Dictionary<string, SyncRuleRuntime> _runtimes = new(StringComparer.OrdinalIgnoreCase);
-    private readonly ResolvedTargetPathStateStore _resolvedTargetPathStateStore;
     private readonly object _applySync = new();
 
     private FileTransferCoordinator? _transfers;
@@ -18,16 +18,11 @@ internal sealed class MainService : BackgroundService
     private readonly Counter<long> _deletedCounter = ServiceMeter.CreateCounter<long>("files_moved_to_trash");
     private readonly Counter<long> _reconcileCounter = ServiceMeter.CreateCounter<long>("reconcile_runs");
 
-    public MainService(ILogger<MainService> logger, ISyncOptionsProvider settingsProvider)
-        : this(logger, settingsProvider, new ResolvedTargetPathStateStore(logger))
-    {
-    }
-
-    public MainService(ILogger<MainService> logger, ISyncOptionsProvider settingsProvider, ResolvedTargetPathStateStore resolvedTargetPathStateStore)
+    public MainService(ILogger<MainService> logger, ISyncOptionsProvider settingsProvider, AppPathsOptions appPaths)
     {
         _logger = logger;
         _settingsProvider = settingsProvider;
-        _resolvedTargetPathStateStore = resolvedTargetPathStateStore;
+        _appPaths = appPaths;
     }
 
     public override Task StartAsync(CancellationToken cancellationToken)
@@ -127,13 +122,21 @@ internal sealed class MainService : BackgroundService
 
                 if (!_runtimes.TryGetValue(prepared.RuntimeKey, out var runtime))
                 {
+                    var resolvedTargetPathStateStore = new ResolvedTargetPathStateStore(
+                        _logger,
+                        _appPaths.ResolvedTargetPathStatePath(prepared.RuleId));
+                    var initialScanSkipStateStore = new InitialScanSkipStateStore(
+                        _logger,
+                        _appPaths.InitialScanSkipStatePath(prepared.RuleId));
+
                     runtime = new SyncRuleRuntime(
                         _logger,
                         _templateRenderer,
                         _copiedCounter,
                         _deletedCounter,
                         _reconcileCounter,
-                        _resolvedTargetPathStateStore,
+                        resolvedTargetPathStateStore,
+                        initialScanSkipStateStore,
                         prepared);
                     _runtimes.Add(prepared.RuntimeKey, runtime);
                     _logger.LogInformation(LogText.Get("RuntimeStarted"), prepared.RuntimeKey);
@@ -181,7 +184,5 @@ internal sealed class MainService : BackgroundService
             _transfers = null;
             _healthRegistry = null;
         }
-
-        _resolvedTargetPathStateStore.Dispose();
     }
 }

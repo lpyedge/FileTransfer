@@ -33,7 +33,9 @@ internal sealed class AppPathsOptions
         return Path.IsPathRooted(formatted) ? formatted : Path.Combine(LogDir, formatted);
     }
 
-    public string ResolvedTargetPathStatePath => Path.Combine(StateDir, "resolved-target-paths");
+    public string ResolvedTargetPathStatePath(string ruleId) => Path.Combine(StateDir, SanitizeFileName(ruleId), "resolved-target-paths");
+
+    public string InitialScanSkipStatePath(string ruleId) => Path.Combine(StateDir, SanitizeFileName(ruleId), "initial-scan-skipped-files");
 
     private static string ResolveDirectory(string? configured, string fallback, string baseDir)
     {
@@ -73,5 +75,17 @@ internal sealed class AppPathsOptions
         return string.IsNullOrWhiteSpace(appData)
             ? Path.Combine(baseDir, "logs")
             : Path.Combine(appData, "FileTransfer", "logs");
+    }
+
+    private static string SanitizeFileName(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return SyncOptions.DefaultRuleId;
+        }
+
+        var invalid = Path.GetInvalidFileNameChars();
+        var chars = value.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray();
+        return new string(chars);
     }
 }

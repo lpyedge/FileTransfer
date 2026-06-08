@@ -15,6 +15,7 @@
 - bounded copy/delete queue，避免檔案風暴造成無限制記憶體成長。
 - reconciliation 可修復漏掉的 watcher 事件、缺失 target、過期 target。
 - 動態路徑快取採用 memory LRU + append-only journal/snapshot。
+- `skipInitialScan` 會把啟動時已存在的檔案寫入 `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal`。保留這個檔案就會一直跳過；日後刪掉它，先前被跳過的舊檔才會重新同步。
 - 可設定 state/log 目錄。
 - runtime log 支援 `auto` / `en` / `ja` / `zh-Hant`。
 - 適合 Windows Service 與 Linux systemd 部署。
@@ -112,11 +113,14 @@ FileTransfer --config appsettings.yaml
 
 ### runtime paths
 
-`paths.stateDir` 保存 journal/snapshot 狀態，`paths.logDir` 保存檔案日誌。
+`paths.stateDir` 保存各 rule 的 journal/snapshot 狀態，路徑會落在 `paths.stateDir/<ruleId>/...`。`paths.logDir` 保存檔案日誌。
 未設定時會使用 OS 的可寫應用程式資料目錄。
 
 - Windows: `%ProgramData%\FileTransfer\state` / `%ProgramData%\FileTransfer\logs`
 - Linux/macOS: `$XDG_STATE_HOME/FileTransfer/...` 或 `~/.local/state/FileTransfer/...`
+
+初始跳過 journal 會保存在 `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal`。
+如果刪掉這個檔案，之前被跳過的啟動既有檔案就會再次變成可同步。
 
 ### runtime 日誌語言
 

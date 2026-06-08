@@ -51,6 +51,9 @@ rules:
     includeSubdirectories: true
     overwriteExisting: true
     deleteSourceAfterCopy: false
+    # When true, files that already exist at startup are recorded in a persistent skip journal.
+    # The file lives under paths.stateDir/<ruleId>/initial-scan-skipped-files.journal.
+    # Keep the journal file to preserve the skip list; delete it later to allow those files to sync.
     skipInitialScan: false
 
     # Supported values: LengthAndTimestamp, Hash.

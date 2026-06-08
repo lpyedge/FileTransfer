@@ -4,6 +4,7 @@ internal sealed class FileTransferCoordinator : IDisposable
     private readonly TargetHealthRegistry _targetHealthRegistry;
     private readonly Func<SyncOptions> _getSyncOptions;
     private readonly Func<PathMapper?> _getPathMapper;
+    private readonly InitialScanSkipStateStore _initialScanSkipStateStore;
     private readonly TransferConcurrencyGate _concurrencyGate = new(1);
     private readonly InFlightOperationTracker _inflightTracker = new();
     private readonly Counter<long> _copiedCounter;
@@ -26,12 +27,14 @@ internal sealed class FileTransferCoordinator : IDisposable
         Func<PathMapper?> getPathMapper,
         Counter<long> copiedCounter,
         Counter<long> deletedCounter,
-        ResolvedTargetPathStateStore resolvedTargetPathStateStore)
+        ResolvedTargetPathStateStore resolvedTargetPathStateStore,
+        InitialScanSkipStateStore initialScanSkipStateStore)
     {
         _logger = logger;
         _targetHealthRegistry = targetHealthRegistry;
         _getSyncOptions = getSyncOptions;
         _getPathMapper = getPathMapper;
+        _initialScanSkipStateStore = initialScanSkipStateStore;
         _copiedCounter = copiedCounter;
         _deletedCounter = deletedCounter;
         var initialSettings = getSyncOptions();
@@ -49,7 +52,7 @@ internal sealed class FileTransferCoordinator : IDisposable
             FullMode = BoundedChannelFullMode.Wait,
             AllowSynchronousContinuations = false
         });
-        _resolvedTargets = new ResolvedTargetPathCache(logger, resolvedTargetPathStateStore, initialSettings.RuntimeId);
+        _resolvedTargets = new ResolvedTargetPathCache(logger, resolvedTargetPathStateStore, initialSettings.RuntimeId, ownsStore: true);
     }
 
     public ConcurrentDictionary<string, FileTransferFingerprint> Fingerprints { get; } = new(PathKeyComparer.Comparer);
@@ -71,6 +74,18 @@ internal sealed class FileTransferCoordinator : IDisposable
     public void RestoreResolvedTargetRoots() => _resolvedTargets.Restore();
 
     public void ClearResolvedTargetRoots() => _resolvedTargets.Clear();
+
+    public bool TrySkipInitialScan(string sourcePath, string context)
+    {
+        var settings = _getSyncOptions();
+        if (!_initialScanSkipStateStore.IsSkipped(settings.RuntimeId, sourcePath))
+        {
+            return false;
+        }
+
+        _logger.LogDebug("Skipped {Context} because it was recorded in the initial-scan skip state: {Path}", context, sourcePath);
+        return true;
+    }
 
 
     public bool TryResolveTargetPath(string sourcePath, string targetRoot, out string targetPath)
@@ -241,6 +256,11 @@ internal sealed class FileTransferCoordinator : IDisposable
         try
         {
             var settings = _getSyncOptions();
+            if (_initialScanSkipStateStore.IsSkipped(settings.RuntimeId, sourcePath))
+            {
+                return;
+            }
+
             var mapper = _getPathMapper();
             if (mapper is null)
             {
@@ -291,6 +311,11 @@ internal sealed class FileTransferCoordinator : IDisposable
         try
         {
             var settings = _getSyncOptions();
+            if (_initialScanSkipStateStore.IsSkipped(settings.RuntimeId, sourcePath))
+            {
+                return;
+            }
+
             var mapper = _getPathMapper();
             if (mapper is null)
             {

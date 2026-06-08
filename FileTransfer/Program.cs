@@ -48,9 +48,6 @@ if (HasSwitch(args, "--validate"))
 var appPaths = AppPathsOptions.FromConfiguration(builder.Configuration, baseDir, configPath);
 appPaths.EnsureDirectories();
 builder.Services.AddSingleton(appPaths);
-builder.Services.AddSingleton(sp => new ResolvedTargetPathStateStore(
-    sp.GetRequiredService<ILogger<ResolvedTargetPathStateStore>>(),
-    sp.GetRequiredService<AppPathsOptions>().ResolvedTargetPathStatePath));
 
 builder.Services.AddSingleton<ISyncOptionsProvider>(sp =>
 {

@@ -236,7 +236,8 @@ public class ProductionFeatureTests
     {
         using var loggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug));
         var provider = new TestSyncOptionsProvider(settings);
-        var service = new MainService(loggerFactory.CreateLogger<MainService>(), provider);
+        var appPaths = CreateTestAppPaths(settings[0]);
+        var service = new MainService(loggerFactory.CreateLogger<MainService>(), provider, appPaths);
         var started = false;
 
         try
@@ -254,6 +255,22 @@ public class ProductionFeatureTests
 
             service.Dispose();
         }
+    }
+
+    private static AppPathsOptions CreateTestAppPaths(SyncOptions settings)
+    {
+        var tempRoot = Path.GetDirectoryName(settings.SourceRoot)!;
+        var stateRoot = Path.Combine(tempRoot, "state");
+        var logRoot = Path.Combine(tempRoot, "logs");
+        Directory.CreateDirectory(stateRoot);
+        Directory.CreateDirectory(logRoot);
+
+        return new AppPathsOptions
+        {
+            StateDir = stateRoot,
+            LogDir = logRoot,
+            ConfigPath = Path.Combine(tempRoot, "appsettings.yaml")
+        };
     }
 
     private static async Task WaitForConditionAsync(Func<bool> condition, TimeSpan timeout)

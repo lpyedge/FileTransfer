@@ -416,8 +416,56 @@ public partial class AdditionalInfrastructureTests
 
         Assert.Equal(Path.GetFullPath(temp.GetPath("custom-state")), options.StateDir);
         Assert.Equal(Path.GetFullPath(temp.GetPath("custom-logs")), options.LogDir);
-        Assert.Equal(Path.Combine(options.StateDir, "resolved-target-paths"), options.ResolvedTargetPathStatePath);
+        Assert.Equal(Path.Combine(options.StateDir, "rule-a", "resolved-target-paths"), options.ResolvedTargetPathStatePath("rule-a"));
+        Assert.Equal(Path.Combine(options.StateDir, "rule-a", "initial-scan-skipped-files"), options.InitialScanSkipStatePath("rule-a"));
         Assert.Equal(Path.Combine(options.LogDir, "app_20260122.log"), options.ResolveLogFile("app_{0:yyyyMMdd}.log", new DateTime(2026, 1, 22)));
+    }
+
+    [Fact]
+    public void InitialScanSkipStateStore_PersistsAndClearsWhenFileIsDeleted()
+    {
+        using var temp = new TempRoot();
+        var logger = new ListLogger();
+        var statePath = temp.GetPath(Path.Combine("state", "rule-a", "initial-scan-skipped-files"));
+        var source = temp.GetPath("source.txt");
+        File.WriteAllText(source, "payload");
+
+        using (var store = new InitialScanSkipStateStore(logger, statePath))
+        {
+            Assert.True(store.MarkSkipped("rule-a", source));
+            Assert.True(store.IsSkipped("rule-a", source));
+            Assert.Single(store.LoadEntries());
+        }
+
+        using var reloaded = new InitialScanSkipStateStore(logger, statePath);
+        Assert.True(reloaded.IsSkipped("rule-a", source));
+        Assert.Single(reloaded.LoadEntries());
+
+        File.Delete(statePath + ".journal");
+
+        Assert.False(reloaded.IsSkipped("rule-a", source));
+        Assert.Empty(reloaded.LoadEntries());
+    }
+
+    [Fact]
+    public void InitialScanSkipStateStore_RuleDirectoriesRemainIsolated()
+    {
+        using var temp = new TempRoot();
+        var logger = new ListLogger();
+        var ruleAPath = temp.GetPath(Path.Combine("state", "rule-a", "initial-scan-skipped-files"));
+        var ruleBPath = temp.GetPath(Path.Combine("state", "rule-b", "initial-scan-skipped-files"));
+        var source = temp.GetPath("source.txt");
+        File.WriteAllText(source, "payload");
+
+        using var storeA = new InitialScanSkipStateStore(logger, ruleAPath);
+        using var storeB = new InitialScanSkipStateStore(logger, ruleBPath);
+
+        Assert.True(storeA.MarkSkipped("rule-a", source));
+        Assert.True(storeA.IsSkipped("rule-a", source));
+        Assert.False(storeB.IsSkipped("rule-b", source));
+
+        Assert.True(File.Exists(ruleAPath + ".journal"));
+        Assert.False(File.Exists(ruleBPath + ".journal"));
     }
 
     [Fact]

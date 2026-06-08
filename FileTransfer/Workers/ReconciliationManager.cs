@@ -7,6 +7,7 @@ internal sealed class ReconciliationManager : IDisposable
     private readonly TryResolveTargetPathDelegate _tryResolveTargetPath;
     private readonly Action<string, string, CancellationToken> _queueCopy;
     private readonly TargetHealthRegistry _healthRegistry;
+    private readonly InitialScanSkipStateStore _initialScanSkipStateStore;
     private readonly Action _onRunCompleted;
 
     private System.Threading.Timer? _timer;
@@ -20,6 +21,7 @@ internal sealed class ReconciliationManager : IDisposable
         TryResolveTargetPathDelegate tryResolveTargetPath,
         Action<string, string, CancellationToken> queueCopy,
         TargetHealthRegistry healthRegistry,
+        InitialScanSkipStateStore initialScanSkipStateStore,
         Action onRunCompleted)
     {
         _logger = logger;
@@ -27,7 +29,19 @@ internal sealed class ReconciliationManager : IDisposable
         _tryResolveTargetPath = tryResolveTargetPath;
         _queueCopy = queueCopy;
         _healthRegistry = healthRegistry;
+        _initialScanSkipStateStore = initialScanSkipStateStore;
         _onRunCompleted = onRunCompleted;
+    }
+
+    public ReconciliationManager(
+        ILogger logger,
+        Func<SyncOptions> getSyncOptions,
+        TryResolveTargetPathDelegate tryResolveTargetPath,
+        Action<string, string, CancellationToken> queueCopy,
+        TargetHealthRegistry healthRegistry,
+        Action onRunCompleted)
+        : this(logger, getSyncOptions, tryResolveTargetPath, queueCopy, healthRegistry, new InitialScanSkipStateStore(logger), onRunCompleted)
+    {
     }
 
     public void Configure(SyncOptions settings, CancellationToken stopToken)
@@ -125,6 +139,11 @@ internal sealed class ReconciliationManager : IDisposable
                 return;
             }
 
+            if (_initialScanSkipStateStore.IsSkipped(settings.RuntimeId, file))
+            {
+                continue;
+            }
+
             if (!FileProcessingRules.ShouldProcess(file, extensions, _logger))
             {
                 continue;
@@ -137,7 +156,6 @@ internal sealed class ReconciliationManager : IDisposable
             }
         }
     }
-
 
     private bool ShouldQueueMissingCopy(SyncOptions settings, string file, CancellationToken ct)
     {

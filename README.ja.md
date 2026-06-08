@@ -15,6 +15,7 @@
 - bounded copy/delete queue により、ファイル集中時の無制限メモリ増加を防ぎます。
 - reconciliation により、監視イベント漏れ、未転送 target、古い target を補修します。
 - 動的パスは memory LRU + append-only journal/snapshot で永続化します。
+- `skipInitialScan` は、起動時に既に存在していたファイルを `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal` に記録します。journal を残している間はずっとスキップされ、後で削除すると過去にスキップされたファイルも再同期できます。
 - state/log ディレクトリを設定可能。
 - runtime ログは `auto` / `en` / `ja` / `zh-Hant` に対応。
 - Windows Service / Linux systemd での運用を想定しています。
@@ -112,11 +113,14 @@ FileTransfer --config appsettings.yaml
 
 ### runtime path
 
-`paths.stateDir` は journal/snapshot 状態を保存します。`paths.logDir` はファイルログを保存します。
+`paths.stateDir` は各 rule の journal/snapshot 状態を保存し、`paths.stateDir/<ruleId>/...` に配置されます。`paths.logDir` はファイルログを保存します。
 未指定時は OS ごとの書き込み可能なアプリケーションデータ領域を使います。
 
 - Windows: `%ProgramData%\FileTransfer\state` / `%ProgramData%\FileTransfer\logs`
 - Linux/macOS: `$XDG_STATE_HOME/FileTransfer/...` または `~/.local/state/FileTransfer/...`
+
+初回スキップ journal は `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal` に保存されます。
+このファイルを削除すると、過去にスキップされた起動時既存ファイルが再び同期対象になります。
 
 ### runtime ログ言語
 

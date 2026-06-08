@@ -80,7 +80,7 @@ public class MainServiceTests
     }
 
     [Fact]
-    public async Task SkipInitialScan_True_DoesNotSyncHistoricalFilesOnStartup()
+    public async Task SkipInitialScan_True_PersistsHistoricalFilesUntilStateFileDeleted()
     {
         using var temp = new TempRoot();
         var settings = CreateDefaultSyncOptions(temp);
@@ -91,11 +91,26 @@ public class MainServiceTests
         var historicalFile = Path.Combine(sourceDir, "historical.txt");
         await File.WriteAllTextAsync(historicalFile, "history", TestContext.Current.CancellationToken);
 
-        await WithServiceAsync(settings, async service =>
+        await WithServiceAsync(settings, async (service, provider, appPaths) =>
         {
+            var skipStatePath = GetInitialScanSkipStateJournalPath(appPaths, settings.RuleId);
+            await WaitForConditionAsync(() => File.Exists(skipStatePath), TimeSpan.FromSeconds(5));
+
             var destFile = Path.Combine(settings.TargetRoots[0], "Mapped", "M_historical.txt");
             await Task.Delay(TimeSpan.FromMilliseconds(1200), TestContext.Current.CancellationToken);
             Assert.False(File.Exists(destFile));
+
+            var updated = settings.Clone();
+            updated.SkipInitialScan = false;
+            provider.RaiseChanged(new[] { updated });
+
+            await Task.Delay(TimeSpan.FromMilliseconds(1200), TestContext.Current.CancellationToken);
+            Assert.False(File.Exists(destFile));
+
+            File.Delete(skipStatePath);
+
+            await WaitForFileExistsAsync(destFile, TimeSpan.FromSeconds(10));
+            await WaitForFileContentAsync(destFile, "history", TimeSpan.FromSeconds(5));
 
             var newFile = Path.Combine(sourceDir, "new.txt");
             await File.WriteAllTextAsync(newFile, "fresh", TestContext.Current.CancellationToken);
@@ -111,6 +126,7 @@ public class MainServiceTests
     {
         using var temp = new TempRoot();
         var settings = CreateDefaultSyncOptions(temp);
+        DeleteInitialScanSkipStateFile(temp.RootPath, settings.RuleId);
 
         var sourceDir = Path.Combine(settings.SourceRoot, "A1");
         Directory.CreateDirectory(sourceDir);
@@ -571,7 +587,7 @@ public class MainServiceTests
         using var temp = new TempRoot();
         var settings = CreateDefaultSyncOptions(temp);
 
-        await WithServiceAsync(settings, async (_, provider) =>
+        await WithServiceAsync(settings, async (_, provider, _) =>
         {
             var sourceDir = Path.Combine(settings.SourceRoot, "A1");
             Directory.CreateDirectory(sourceDir);
@@ -698,7 +714,7 @@ public class MainServiceTests
         var settings = CreateDefaultSyncOptions(temp);
         settings.DeleteSourceAfterCopy = false; // start with normal behavior
 
-        await WithServiceAsync(settings, async (_, provider) =>
+        await WithServiceAsync(settings, async (_, provider, _) =>
         {
             var sourceDir = Path.Combine(settings.SourceRoot, "A1");
             Directory.CreateDirectory(sourceDir);
@@ -1170,20 +1186,21 @@ public class MainServiceTests
 
     // MainService のライフサイクル制御を共通化するためのヘルパー
     private static Task WithServiceAsync(SyncOptions settings, Func<MainService, Task> action) =>
-        WithServiceAsync(settings, (service, _) => action(service));
+        WithServiceAsync(settings, (service, _, _) => action(service));
 
     // ILogger/ISyncOptionsProvider を注入しつつ、サービスの開始・停止を確実に行う
-    private static async Task WithServiceAsync(SyncOptions settings, Func<MainService, TestSyncOptionsProvider, Task> action)
+    private static async Task WithServiceAsync(SyncOptions settings, Func<MainService, TestSyncOptionsProvider, AppPathsOptions, Task> action)
     {
         using var loggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug));
         var provider = new TestSyncOptionsProvider(settings.Clone());
-        var service = new MainService(loggerFactory.CreateLogger<MainService>(), provider);
+        var appPaths = CreateTestAppPaths(settings);
+        var service = new MainService(loggerFactory.CreateLogger<MainService>(), provider, appPaths);
         var started = false;
         try
         {
             await service.StartAsync(TestContext.Current.CancellationToken);
             started = true;
-            await action(service, provider);
+            await action(service, provider, appPaths);
         }
         finally
         {
@@ -1194,6 +1211,40 @@ public class MainServiceTests
 
             service.Dispose();
         }
+    }
+
+    private static AppPathsOptions CreateTestAppPaths(SyncOptions settings)
+    {
+        var tempRoot = Path.GetDirectoryName(settings.SourceRoot)!;
+        return CreateTestAppPaths(tempRoot);
+    }
+
+    private static string GetInitialScanSkipStateJournalPath(AppPathsOptions appPaths, string ruleId) =>
+        appPaths.InitialScanSkipStatePath(ruleId) + ".journal";
+
+    private static void DeleteInitialScanSkipStateFile(string tempRoot, string ruleId)
+    {
+        var appPaths = CreateTestAppPaths(tempRoot);
+        var path = GetInitialScanSkipStateJournalPath(appPaths, ruleId);
+        if (File.Exists(path))
+        {
+            File.Delete(path);
+        }
+    }
+
+    private static AppPathsOptions CreateTestAppPaths(string tempRoot)
+    {
+        var stateRoot = Path.Combine(tempRoot, "state");
+        var logRoot = Path.Combine(tempRoot, "logs");
+        Directory.CreateDirectory(stateRoot);
+        Directory.CreateDirectory(logRoot);
+
+        return new AppPathsOptions
+        {
+            StateDir = stateRoot,
+            LogDir = logRoot,
+            ConfigPath = Path.Combine(tempRoot, "appsettings.yaml")
+        };
     }
 
     // テストごとに分離された一時ディレクトリを管理し、後片付けを自動化する
@@ -1207,6 +1258,8 @@ public class MainServiceTests
             _root = Path.Combine(Path.GetTempPath(), "FileTransfer.Tests", Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_root);
         }
+
+        public string RootPath => _root;
 
         public string CreateDir(string relative)
         {
@@ -1254,6 +1307,11 @@ public class MainServiceTests
         {
             _settings = settings.Clone();
             OptionsChanged?.Invoke(new[] { _settings.Clone() });
+        }
+
+        public void RaiseChanged(IEnumerable<SyncOptions> settings)
+        {
+            Update(settings.Last().Clone());
         }
     }
 }

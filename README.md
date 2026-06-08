@@ -15,6 +15,7 @@ Languages: **English** | [日本語](README.ja.md) | [繁體中文](README.zh.md
 - Bounded copy/delete queues to avoid unlimited memory growth.
 - Reconciliation scan to recover missed watcher events, missing targets, and stale targets.
 - Dynamic path cache using memory LRU + append-only journal/snapshot.
+- `skipInitialScan` now seeds a persistent startup skip journal under `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal` for files that already existed when the service first started. Keep the journal file to preserve the skip list; delete it later if you want those older files to sync.
 - Configurable state and log directories.
 - Localized runtime logs: `auto`, `en`, `ja`, `zh-Hant`.
 - Windows Service and Linux systemd friendly.
@@ -112,11 +113,14 @@ Additional examples are available under [`examples/`](examples/).
 
 ### Runtime paths
 
-`paths.stateDir` stores journal/snapshot state. `paths.logDir` stores file logs.
+`paths.stateDir` stores per-rule journal/snapshot state under `paths.stateDir/<ruleId>/...`. `paths.logDir` stores file logs.
 When omitted, FileTransfer uses writable application data locations:
 
 - Windows: `%ProgramData%\FileTransfer\state` and `%ProgramData%\FileTransfer\logs`
 - Linux/macOS: `$XDG_STATE_HOME/FileTransfer/...` or `~/.local/state/FileTransfer/...`
+
+The startup skip journal is stored under `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal`.
+If you delete that file, previously skipped startup files become eligible for synchronization again.
 
 ### Runtime log language
 

@@ -10,6 +10,7 @@ internal sealed class SyncRuleRuntime : IDisposable
     private readonly ReconciliationManager _reconciliation;
     private readonly TargetHealthMonitor _healthMonitor;
     private readonly StartupInventoryReporter _inventoryReporter;
+    private readonly InitialScanSkipStateStore _initialScanSkipStateStore;
 
     private RuntimeState _runtime = RuntimeState.Empty;
     private CancellationToken _stopToken;
@@ -23,6 +24,7 @@ internal sealed class SyncRuleRuntime : IDisposable
         Counter<long> deletedCounter,
         Counter<long> reconcileCounter,
         ResolvedTargetPathStateStore resolvedTargetPathStateStore,
+        InitialScanSkipStateStore initialScanSkipStateStore,
         SyncOptions initialOptions)
     {
         _logger = logger;
@@ -30,6 +32,7 @@ internal sealed class SyncRuleRuntime : IDisposable
         _copiedCounter = copiedCounter;
         _deletedCounter = deletedCounter;
         _reconcileCounter = reconcileCounter;
+        _initialScanSkipStateStore = initialScanSkipStateStore;
         _runtime = RuntimeState.Create(initialOptions, logger, templateRenderer);
         HealthRegistry = new TargetHealthRegistry(logger);
 
@@ -40,7 +43,8 @@ internal sealed class SyncRuleRuntime : IDisposable
             () => Current.PathMapper,
             _copiedCounter,
             _deletedCounter,
-            resolvedTargetPathStateStore);
+            resolvedTargetPathStateStore,
+            initialScanSkipStateStore);
 
         _watchers = new FileWatcherManager(logger, () => Current.Options, OnChange, OnDelete);
 
@@ -50,6 +54,7 @@ internal sealed class SyncRuleRuntime : IDisposable
             _transfers.TryResolveTargetPath,
             _transfers.QueueCopy,
             HealthRegistry,
+            _initialScanSkipStateStore,
             () => _reconcileCounter.Add(1));
 
         _healthMonitor = new TargetHealthMonitor(logger, HealthRegistry, () => Current.Options);
@@ -96,6 +101,11 @@ internal sealed class SyncRuleRuntime : IDisposable
             _transfers.RestoreResolvedTargetRoots();
         }
 
+        if (!_initialized && prepared.SkipInitialScan)
+        {
+            _initialScanSkipStateStore.SeedFromSourceRoot(prepared);
+        }
+
         _watchers.Update(prepared);
         _reconciliation.Configure(prepared, _stopToken);
         _healthMonitor.Configure(prepared, _stopToken);
@@ -131,6 +141,11 @@ internal sealed class SyncRuleRuntime : IDisposable
             return;
         }
 
+        if (_transfers.TrySkipInitialScan(path, LogText.Get("CopyContext")))
+        {
+            return;
+        }
+
         _transfers.QueueCopy(path, FileProcessingRules.EventLabel(watcherEvent), _stopToken);
     }
 
@@ -156,6 +171,11 @@ internal sealed class SyncRuleRuntime : IDisposable
             return;
         }
 
+        if (_transfers.TrySkipInitialScan(path, LogText.Get("DeleteSyncContext")))
+        {
+            return;
+        }
+
         _transfers.ScheduleMirrorDelete(path, _stopToken);
     }
 
@@ -171,5 +191,6 @@ internal sealed class SyncRuleRuntime : IDisposable
         _reconciliation.Dispose();
         _healthMonitor.Dispose();
         _transfers.Dispose();
+        _initialScanSkipStateStore.Dispose();
     }
 }
