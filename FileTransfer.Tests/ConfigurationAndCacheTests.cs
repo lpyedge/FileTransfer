@@ -3,6 +3,33 @@ namespace FileTransfer.Tests;
 public class ConfigurationAndCacheTests
 {
     [Fact]
+    public void MaliciousResolvedTargetStateOutsideRoot_IsIgnored()
+    {
+        using var temp = new TempRoot();
+        var logger = new ListLogger();
+        var sourceRoot = temp.CreateDir("source-malicious");
+        var targetRoot = temp.CreateDir("target-malicious");
+        var outsideRoot = temp.CreateDir("outside");
+        var source = Path.Combine(sourceRoot, "report.txt");
+        var outside = Path.Combine(outsideRoot, "victim.txt");
+        File.WriteAllText(source, "source");
+        File.WriteAllText(outside, "outside");
+        var statePath = temp.GetPath(Path.Combine("state-malicious", "resolved-target-paths"));
+        using var store = new ResolvedTargetPathStateStore(logger, statePath);
+        store.Upsert(new PersistedResolvedTargetPathEntry(source, targetRoot, outside, new FileInfo(source).CreationTimeUtc));
+        using var cache = new ResolvedTargetPathCache(logger, store);
+        cache.Restore();
+        var options = new SyncOptions { SourceRoot = sourceRoot, TargetRoots = new[] { targetRoot }, FileExtensions = Array.Empty<string>() };
+        var mapper = new PathMapper(options, logger, new PathTemplateRenderer());
+
+        var resolved = cache.ResolveForDelete(source, targetRoot, mapper);
+
+        Assert.True(PathHelper.IsStrictChildPath(targetRoot, resolved));
+        Assert.True(File.Exists(outside));
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning && entry.Message.Contains(outside));
+    }
+
+    [Fact]
     public void FromConfiguration_ExpandsMultipleSourceRootsAndSkipsDisabledRules()
     {
         var values = new Dictionary<string, string?>
@@ -67,8 +94,6 @@ public class ConfigurationAndCacheTests
         Assert.Equal(ComparisonMode.LengthAndTimestamp, settings.ComparisonMode);
         Assert.Equal(ReadySignalMode.StableSize, settings.ReadySignal.Mode);
         Assert.Equal(3, settings.ReadySignal.StableChecks);
-        Assert.Equal(10000, settings.Queue.CopyCapacity);
-        Assert.Equal(5000, settings.Queue.DeleteCapacity);
         Assert.Equal(4, settings.MaxParallelTransfers);
         Assert.Equal(10000, settings.MaxReconciliationFilesPerRun);
         Assert.Equal(30000, settings.MaxReconciliationDurationMs);
@@ -196,6 +221,78 @@ public class ConfigurationAndCacheTests
         var entries = store.LoadEntries();
         Assert.DoesNotContain(entries, entry => entry.RuleId == "rule#source:first");
         Assert.Contains(entries, entry => entry.RuleId == "rule#source:second" && entry.SourceRoot == secondSource);
+    }
+
+    [Fact]
+    public void Restore_NormalizesPersistedSourceAndTargetKeys()
+    {
+        using var temp = new TempRoot();
+        var logger = new ListLogger();
+        var sourceRoot = temp.CreateDir("source-normalized");
+        var targetRoot = temp.CreateDir("target-normalized");
+        var sourceDirectory = Path.Combine(sourceRoot, "A1");
+        Directory.CreateDirectory(sourceDirectory);
+        var normalizedSource = Path.GetFullPath(Path.Combine(sourceDirectory, "report.txt"));
+        File.WriteAllText(normalizedSource, "source");
+        var cachedDirectory = Path.Combine(targetRoot, "Cached");
+        Directory.CreateDirectory(cachedDirectory);
+        var normalizedCachedPath = Path.GetFullPath(Path.Combine(cachedDirectory, "result.txt"));
+        var persistedSource = Path.Combine(sourceRoot, ".", "A1", "sub", "..", "report.txt");
+        var persistedTargetRoot = Path.Combine(targetRoot, "level", "..");
+        var persistedTargetPath = Path.Combine(targetRoot, "Cached", ".", "result.txt");
+        using var store = new ResolvedTargetPathStateStore(
+            logger,
+            temp.GetPath(Path.Combine("state-normalized", "resolved-target-paths")));
+        store.Upsert(new PersistedResolvedTargetPathEntry(
+            persistedSource,
+            persistedTargetRoot,
+            persistedTargetPath,
+            new FileInfo(normalizedSource).CreationTimeUtc));
+        using var cache = new ResolvedTargetPathCache(logger, store);
+
+        cache.Restore();
+        var mapper = CreateMapper(sourceRoot, targetRoot, "Mapped/{fileName}");
+        var resolved = cache.ResolveForDelete(normalizedSource, Path.GetFullPath(targetRoot), mapper);
+
+        Assert.Equal(normalizedCachedPath, resolved);
+    }
+
+    [Fact]
+    public void Restore_InvalidPersistedPath_DoesNotAbortOtherEntries()
+    {
+        using var temp = new TempRoot();
+        var logger = new ListLogger();
+        var sourceRoot = temp.CreateDir("source-mixed");
+        var targetRoot = temp.CreateDir("target-mixed");
+        var sourceDirectory = Path.Combine(sourceRoot, "A1");
+        Directory.CreateDirectory(sourceDirectory);
+        var validSource = Path.Combine(sourceDirectory, "valid.txt");
+        File.WriteAllText(validSource, "valid");
+        var validCachedPath = Path.Combine(targetRoot, "Cached", "valid.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(validCachedPath)!);
+        var invalidTargetRoot = "\0invalid-target";
+        using var store = new ResolvedTargetPathStateStore(
+            logger,
+            temp.GetPath(Path.Combine("state-mixed", "resolved-target-paths")));
+        store.Upsert(new PersistedResolvedTargetPathEntry(
+            validSource,
+            invalidTargetRoot,
+            Path.Combine(targetRoot, "Cached", "invalid.txt"),
+            new FileInfo(validSource).CreationTimeUtc));
+        store.Upsert(new PersistedResolvedTargetPathEntry(
+            validSource,
+            targetRoot,
+            validCachedPath,
+            new FileInfo(validSource).CreationTimeUtc));
+        using var cache = new ResolvedTargetPathCache(logger, store);
+
+        cache.Restore();
+        var mapper = CreateMapper(sourceRoot, targetRoot, "Mapped/{fileName}");
+        var resolved = cache.ResolveForDelete(validSource, targetRoot, mapper);
+
+        Assert.Equal(Path.GetFullPath(validCachedPath), resolved);
+        Assert.DoesNotContain(store.LoadEntries(), entry => entry.TargetRoot == invalidTargetRoot);
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning && entry.Message.Contains("invalid"));
     }
 
     [Fact]

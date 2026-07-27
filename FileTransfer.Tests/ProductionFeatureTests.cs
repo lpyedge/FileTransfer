@@ -159,6 +159,105 @@ public class ProductionFeatureTests
         });
     }
 
+    [Fact]
+    public async Task InvalidReload_DoesNotModifyRunningRuntimes()
+    {
+        using var temp = new TempRoot();
+        var active = CreateRule(temp, "active");
+
+        await WithServiceAsync(new[] { active }, async (_, provider) =>
+        {
+            var firstSourceDirectory = Path.Combine(active.SourceRoot, "A1");
+            Directory.CreateDirectory(firstSourceDirectory);
+            var firstSource = Path.Combine(firstSourceDirectory, "before-invalid.txt");
+            await File.WriteAllTextAsync(firstSource, "before", TestContext.Current.CancellationToken);
+            await WaitForFileContentAsync(
+                Path.Combine(active.TargetRoots[0], "Mapped", "M_before-invalid.txt"),
+                "before",
+                TimeSpan.FromSeconds(5));
+
+            var invalidFirst = CreateRule(temp, "invalid-first");
+            var invalidSecond = CreateRule(temp, "invalid-second");
+            invalidFirst.RuntimeId = "duplicate-runtime";
+            invalidSecond.RuntimeId = "duplicate-runtime";
+            provider.RaiseChanged(new[] { invalidFirst, invalidSecond });
+
+            var afterSource = Path.Combine(firstSourceDirectory, "after-invalid.txt");
+            await File.WriteAllTextAsync(afterSource, "after", TestContext.Current.CancellationToken);
+            await WaitForFileContentAsync(
+                Path.Combine(active.TargetRoots[0], "Mapped", "M_after-invalid.txt"),
+                "after",
+                TimeSpan.FromSeconds(5));
+            Assert.False(File.Exists(Path.Combine(invalidFirst.TargetRoots[0], "Mapped", "M_after-invalid.txt")));
+            Assert.False(File.Exists(Path.Combine(invalidSecond.TargetRoots[0], "Mapped", "M_after-invalid.txt")));
+        });
+    }
+
+    [Fact]
+    public async Task RapidReloads_FinalRuntimeUsesLatestConfiguration()
+    {
+        using var temp = new TempRoot();
+        var initial = CreateRule(temp, "rapid");
+        var intermediate = initial.Clone();
+        var final = initial.Clone();
+        var intermediateTarget = temp.CreateDir("rapid-intermediate-target");
+        var finalTarget = temp.CreateDir("rapid-final-target");
+        intermediate.TargetRoots = [intermediateTarget];
+        final.TargetRoots = [finalTarget];
+
+        await WithServiceAsync(new[] { initial }, async (_, provider) =>
+        {
+            provider.RaiseChanged(new[] { intermediate });
+            provider.RaiseChanged(new[] { final });
+
+            var sourceDirectory = Path.Combine(initial.SourceRoot, "A1");
+            Directory.CreateDirectory(sourceDirectory);
+            var sourcePath = Path.Combine(sourceDirectory, "latest-only.txt");
+            await File.WriteAllTextAsync(sourcePath, "latest", TestContext.Current.CancellationToken);
+
+            await WaitForFileContentAsync(
+                Path.Combine(finalTarget, "Mapped", "M_latest-only.txt"),
+                "latest",
+                TimeSpan.FromSeconds(5));
+            Assert.False(File.Exists(Path.Combine(initial.TargetRoots[0], "Mapped", "M_latest-only.txt")));
+            Assert.False(File.Exists(Path.Combine(intermediateTarget, "Mapped", "M_latest-only.txt")));
+        });
+    }
+
+    [Fact]
+    public async Task CrossRuleCycle_IsRejectedBeforeAnyRuntimeMutation()
+    {
+        using var temp = new TempRoot();
+        var active = CreateRule(temp, "cycle-active");
+
+        await WithServiceAsync(new[] { active }, async (_, provider) =>
+        {
+            var cycleA = CreateRule(temp, "cycle-a");
+            var cycleB = CreateRule(temp, "cycle-b");
+            cycleA.TargetRoots = [cycleB.SourceRoot];
+            cycleB.TargetRoots = [cycleA.SourceRoot];
+
+            Assert.False(SyncOptionsSetValidator.TryPrepareAll(
+                new[] { cycleA, cycleB },
+                new ListLogger(),
+                new PathTemplateRenderer(),
+                out var prepared));
+            Assert.Empty(prepared);
+            provider.RaiseChanged(new[] { cycleA, cycleB });
+
+            var sourceDirectory = Path.Combine(active.SourceRoot, "A1");
+            Directory.CreateDirectory(sourceDirectory);
+            var sourcePath = Path.Combine(sourceDirectory, "still-active.txt");
+            await File.WriteAllTextAsync(sourcePath, "active", TestContext.Current.CancellationToken);
+            await WaitForFileContentAsync(
+                Path.Combine(active.TargetRoots[0], "Mapped", "M_still-active.txt"),
+                "active",
+                TimeSpan.FromSeconds(5));
+            Assert.False(File.Exists(Path.Combine(cycleA.TargetRoots[0], "Mapped", "M_still-active.txt")));
+            Assert.False(File.Exists(Path.Combine(cycleB.TargetRoots[0], "Mapped", "M_still-active.txt")));
+        });
+    }
+
 
     [Fact]
     public async Task Reconciliation_ReplacesStaleTargetUsingLengthAndTimestamp()
@@ -204,11 +303,6 @@ public class ProductionFeatureTests
             TimeoutMs = 3000,
             RequireReadable = true
         },
-        Queue = new QueueOptions
-        {
-            CopyCapacity = 32,
-            DeleteCapacity = 16
-        },
         WatchEvents = new WatchEventOptions
         {
             Created = true,
@@ -228,11 +322,17 @@ public class ProductionFeatureTests
         MaxRetryDelayMs = 200,
         OperationTimeoutMs = 10000,
         ReconciliationIntervalMs = 200,
-        HealthCheckIntervalMs = 100,
         MaxParallelTransfers = 2
     };
 
     private static async Task WithServiceAsync(IReadOnlyList<SyncOptions> settings, Func<MainService, Task> action)
+    {
+        await WithServiceAsync(settings, (service, _) => action(service));
+    }
+
+    private static async Task WithServiceAsync(
+        IReadOnlyList<SyncOptions> settings,
+        Func<MainService, TestSyncOptionsProvider, Task> action)
     {
         using var loggerFactory = LoggerFactory.Create(builder => builder.SetMinimumLevel(LogLevel.Debug));
         var provider = new TestSyncOptionsProvider(settings);
@@ -244,7 +344,7 @@ public class ProductionFeatureTests
         {
             await service.StartAsync(TestContext.Current.CancellationToken);
             started = true;
-            await action(service);
+            await action(service, provider);
         }
         finally
         {

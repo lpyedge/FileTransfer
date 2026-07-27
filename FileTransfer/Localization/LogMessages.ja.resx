@@ -38,9 +38,6 @@
   <data name="EventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Ignore=true のマッピングに一致したためイベントをスキップします: {Path}</value></data>
   <data name="ExtensionSkipped" xml:space="preserve"><value>拡張子フィルターによりスキップします: {Path}</value></data>
   <data name="HashFailed" xml:space="preserve"><value>ハッシュ計算に失敗しました: {Path}</value></data>
-  <data name="HealthCheckFailed" xml:space="preserve"><value>ターゲット健全性チェックの実行に失敗しました。</value></data>
-  <data name="HealthUnexpectedError" xml:space="preserve"><value>ターゲット健全性チェックで予期しないエラーが発生しました: {Target}</value></data>
-  <data name="HealthWriteProbeFailed" xml:space="preserve"><value>ターゲット健全性の書き込み確認に失敗しました: {Target}</value></data>
   <data name="InventoryEnumerationError" xml:space="preserve"><value>インベントリ用の列挙処理でエラーが発生しました: {Path}</value></data>
   <data name="InventoryFailed" xml:space="preserve"><value>起動時インベントリの収集に失敗しました。</value></data>
   <data name="InventoryMissing" xml:space="preserve"><value>{Label} は存在しません ({Path})。</value></data>
@@ -144,8 +141,6 @@
   <data name="FileChangeDeleted" xml:space="preserve"><value>削除</value></data>
   <data name="FileChangeRenamed" xml:space="preserve"><value>名前変更</value></data>
   <data name="FileChangeUnknown" xml:space="preserve"><value>不明</value></data>
-  <data name="HealthCheckFailedReason" xml:space="preserve"><value>ヘルスチェックで障害が検出されました。</value></data>
-  <data name="HealthCheckSucceededReason" xml:space="preserve"><value>ヘルスチェックに成功しました。</value></data>
   <data name="HealthStateHealthy" xml:space="preserve"><value>正常</value></data>
   <data name="HealthStateUnhealthy" xml:space="preserve"><value>異常</value></data>
   <data name="InventorySummary" xml:space="preserve"><value>{Label}: パス={Path} / サブディレクトリ={Dirs} 件 / ファイル={Files} 件 / 合計サイズ={Size}</value></data>

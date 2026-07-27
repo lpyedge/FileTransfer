@@ -52,7 +52,7 @@ public class SchedulerTests
     }
 
     [Fact]
-    public async Task ReconciliationManager_SkipsWhenNoHealthyTargetExists()
+    public async Task ReconciliationManager_SkipsWhenAllTargetsAreInBackoff()
     {
         using var culture = TestCultureScope.Use("ja");
         using var temp = new TempRoot();
@@ -73,7 +73,12 @@ public class SchedulerTests
 
         var healthRegistry = new TargetHealthRegistry(logger);
         healthRegistry.Initialize(settings.TargetRoots);
-        healthRegistry.Update(settings.TargetRoots[0], false, "offline");
+        healthRegistry.RecordFailure(
+            settings.TargetRoots[0],
+            DateTimeOffset.UtcNow,
+            initialDelayMs: 60_000,
+            maxDelayMs: 60_000,
+            reason: "offline");
         var mapper = new PathMapper(settings, logger, new PathTemplateRenderer());
         var queued = new ConcurrentQueue<(string SourceRoot, string Label)>();
         var completedRuns = 0;
@@ -93,37 +98,10 @@ public class SchedulerTests
 
         manager.Configure(settings, TestContext.Current.CancellationToken);
         await AsyncAssert.WaitForConditionAsync(
-            () => logger.Entries.Any(entry => entry.Level == LogLevel.Warning && entry.Message.Contains("健全なターゲットパスがありません")) &&
-                  Volatile.Read(ref completedRuns) > 0,
+            () => Volatile.Read(ref completedRuns) > 0,
             TimeSpan.FromSeconds(3));
 
         Assert.Empty(queued);
     }
 
-    [Fact]
-    public async Task TargetHealthMonitor_UpdatesRegistryForHealthyAndMissingTargets()
-    {
-        using var temp = new TempRoot();
-        var logger = new ListLogger();
-        var healthyTarget = temp.CreateDir("healthy");
-        var missingTarget = temp.GetPath("missing");
-        var registry = new TargetHealthRegistry(logger);
-        registry.Initialize(new[] { healthyTarget, missingTarget });
-        var settings = new SyncOptions
-        {
-            TargetRoots = new[] { healthyTarget, missingTarget },
-            HealthCheckIntervalMs = 1000
-        };
-
-        using var monitor = new TargetHealthMonitor(logger, registry, () => settings);
-        monitor.Configure(settings, TestContext.Current.CancellationToken);
-
-        await AsyncAssert.WaitForConditionAsync(
-            () => registry.IsHealthy(healthyTarget) && !registry.IsHealthy(missingTarget),
-            TimeSpan.FromSeconds(2));
-
-        Assert.True(registry.IsHealthy(healthyTarget));
-        Assert.False(registry.IsHealthy(missingTarget));
-        Assert.Empty(Directory.EnumerateFileSystemEntries(healthyTarget, ".filetransfer-health*", SearchOption.TopDirectoryOnly));
-    }
 }

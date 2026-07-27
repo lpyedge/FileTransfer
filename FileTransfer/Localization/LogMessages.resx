@@ -38,9 +38,6 @@
   <data name="EventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Event skipped by Ignore=true mapping: {Path}</value></data>
   <data name="ExtensionSkipped" xml:space="preserve"><value>Skipped by extension filter: {Path}</value></data>
   <data name="HashFailed" xml:space="preserve"><value>Hash calculation failed: {Path}</value></data>
-  <data name="HealthCheckFailed" xml:space="preserve"><value>Target health check failed.</value></data>
-  <data name="HealthUnexpectedError" xml:space="preserve"><value>Unexpected target health check error: {Target}</value></data>
-  <data name="HealthWriteProbeFailed" xml:space="preserve"><value>Target health write probe failed: {Target}</value></data>
   <data name="InventoryEnumerationError" xml:space="preserve"><value>Error during startup inventory enumeration: {Path}</value></data>
   <data name="InventoryFailed" xml:space="preserve"><value>Startup inventory collection failed.</value></data>
   <data name="InventoryMissing" xml:space="preserve"><value>{Label} does not exist ({Path}).</value></data>
@@ -144,8 +141,6 @@ Options:
   <data name="FileChangeDeleted" xml:space="preserve"><value>deleted</value></data>
   <data name="FileChangeRenamed" xml:space="preserve"><value>renamed</value></data>
   <data name="FileChangeUnknown" xml:space="preserve"><value>unknown</value></data>
-  <data name="HealthCheckFailedReason" xml:space="preserve"><value>health check detected a failure.</value></data>
-  <data name="HealthCheckSucceededReason" xml:space="preserve"><value>health check succeeded.</value></data>
   <data name="HealthStateHealthy" xml:space="preserve"><value>healthy</value></data>
   <data name="HealthStateUnhealthy" xml:space="preserve"><value>unhealthy</value></data>
   <data name="InventorySummary" xml:space="preserve"><value>{Label}: path={Path} / subdirectories={Dirs} / files={Files} / total size={Size}</value></data>

@@ -2,7 +2,7 @@ internal sealed class FileWatcherManager : IDisposable
 {
     private readonly ILogger _logger;
     private readonly Func<SyncOptions> _getSyncOptions;
-    private readonly Action<FileChangeKind, string> _onChange;
+    private readonly Action<FileChangeKind, string, string?> _onChange;
     private readonly Action<string> _onDelete;
     private readonly object _sync = new();
 
@@ -20,7 +20,7 @@ internal sealed class FileWatcherManager : IDisposable
     public FileWatcherManager(
         ILogger logger,
         Func<SyncOptions> getSyncOptions,
-        Action<FileChangeKind, string> onChange,
+        Action<FileChangeKind, string, string?> onChange,
         Action<string> onDelete)
     {
         _logger = logger;
@@ -72,19 +72,19 @@ internal sealed class FileWatcherManager : IDisposable
 
         if (FileProcessingRules.IsEventEnabled(FileChangeKind.Created, settings))
         {
-            _onCreatedHandler = (_, e) => _onChange(FileChangeKind.Created, e.FullPath);
+            _onCreatedHandler = (_, e) => _onChange(FileChangeKind.Created, e.FullPath, null);
             watcher.Created += _onCreatedHandler;
         }
 
         if (FileProcessingRules.IsEventEnabled(FileChangeKind.Changed, settings))
         {
-            _onChangedHandler = (_, e) => _onChange(FileChangeKind.Changed, e.FullPath);
+            _onChangedHandler = (_, e) => _onChange(FileChangeKind.Changed, e.FullPath, null);
             watcher.Changed += _onChangedHandler;
         }
 
         if (FileProcessingRules.IsEventEnabled(FileChangeKind.Renamed, settings))
         {
-            _onRenamedHandler = (_, e) => _onChange(FileChangeKind.Renamed, e.FullPath);
+            _onRenamedHandler = (_, e) => _onChange(FileChangeKind.Renamed, e.FullPath, e.OldFullPath);
             watcher.Renamed += _onRenamedHandler;
         }
 

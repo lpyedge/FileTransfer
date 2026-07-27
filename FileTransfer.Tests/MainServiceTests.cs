@@ -221,6 +221,7 @@ public class MainServiceTests
     {
         using var temp = new TempRoot();
         var settings = CreateDefaultSyncOptions(temp);
+        settings.WatchEvents.Deleted = false;
 
         await WithServiceAsync(settings, async service =>
         {
@@ -238,6 +239,78 @@ public class MainServiceTests
             var renamedDest = Path.Combine(settings.TargetRoots[0], "Mapped", "M_renamed.txt");
             await WaitForFileExistsAsync(renamedDest, TimeSpan.FromSeconds(5));
             Assert.True(File.Exists(originalDest));
+        });
+    }
+
+    [Fact]
+    public async Task Rename_OldMatchingPathIsDeletedWhenNewPathIsFilteredOut()
+    {
+        using var temp = new TempRoot();
+        var settings = CreateDefaultSyncOptions(temp);
+
+        await WithServiceAsync(settings, async _ =>
+        {
+            var sourceDir = Path.Combine(settings.SourceRoot, "A1");
+            Directory.CreateDirectory(sourceDir);
+            var oldPath = Path.Combine(sourceDir, "old.tif");
+            await File.WriteAllTextAsync(oldPath, "old-content", TestContext.Current.CancellationToken);
+
+            var oldTarget = Path.Combine(settings.TargetRoots[0], "Mapped", "M_old.tif");
+            await WaitForFileContentAsync(oldTarget, "old-content", TimeSpan.FromSeconds(5));
+
+            File.Move(oldPath, Path.Combine(sourceDir, "new.tmp"));
+
+            await WaitForFileMissingAsync(oldTarget, TimeSpan.FromSeconds(5));
+            Assert.False(File.Exists(Path.Combine(settings.TargetRoots[0], "Mapped", "M_new.tmp")));
+        });
+    }
+
+    [Fact]
+    public async Task Rename_OldFilteredPathDoesNotDeleteItsExistingTarget()
+    {
+        using var temp = new TempRoot();
+        var settings = CreateDefaultSyncOptions(temp);
+
+        await WithServiceAsync(settings, async _ =>
+        {
+            var sourceDir = Path.Combine(settings.SourceRoot, "A1");
+            Directory.CreateDirectory(sourceDir);
+            var oldPath = Path.Combine(sourceDir, "old.tmp");
+            var oldTarget = Path.Combine(settings.TargetRoots[0], "Mapped", "M_old.tmp");
+            Directory.CreateDirectory(Path.GetDirectoryName(oldTarget)!);
+            await File.WriteAllTextAsync(oldTarget, "sentinel", TestContext.Current.CancellationToken);
+            await File.WriteAllTextAsync(oldPath, "old-content", TestContext.Current.CancellationToken);
+
+            var newPath = Path.Combine(sourceDir, "new.tif");
+            File.Move(oldPath, newPath);
+
+            var newTarget = Path.Combine(settings.TargetRoots[0], "Mapped", "M_new.tif");
+            await WaitForFileContentAsync(newTarget, "old-content", TimeSpan.FromSeconds(5));
+            Assert.Equal("sentinel", await File.ReadAllTextAsync(oldTarget, TestContext.Current.CancellationToken));
+        });
+    }
+
+    [Fact]
+    public async Task Rename_DeletedDisabledKeepsOldMatchingTargetWhenNewPathIsFilteredOut()
+    {
+        using var temp = new TempRoot();
+        var settings = CreateDefaultSyncOptions(temp);
+        settings.WatchEvents.Deleted = false;
+
+        await WithServiceAsync(settings, async _ =>
+        {
+            var sourceDir = Path.Combine(settings.SourceRoot, "A1");
+            Directory.CreateDirectory(sourceDir);
+            var oldPath = Path.Combine(sourceDir, "old.tif");
+            await File.WriteAllTextAsync(oldPath, "old-content", TestContext.Current.CancellationToken);
+
+            var oldTarget = Path.Combine(settings.TargetRoots[0], "Mapped", "M_old.tif");
+            await WaitForFileContentAsync(oldTarget, "old-content", TimeSpan.FromSeconds(5));
+
+            File.Move(oldPath, Path.Combine(sourceDir, "new.tmp"));
+
+            await WaitForFileExistsAsync(Path.Combine(sourceDir, "new.tmp"), TimeSpan.FromSeconds(5));
+            Assert.Equal("old-content", await File.ReadAllTextAsync(oldTarget, TestContext.Current.CancellationToken));
         });
     }
 
@@ -359,16 +432,19 @@ public class MainServiceTests
             var expectedDir = Path.Combine(settings.TargetRoots[0], "Rendered", "2026-01-22");
             await WaitForConditionAsync(() => Directory.Exists(expectedDir), TimeSpan.FromSeconds(5));
 
-            string[] files = Array.Empty<string>();
+            const string finalNamePattern = @"^M_20260122-report_[0-9a-f]{32}_\d{8}\.txt$";
+            string? destinationFile = null;
             await WaitForConditionAsync(() =>
             {
-                files = Directory.GetFiles(expectedDir);
-                return files.Length == 1;
+                destinationFile = Directory
+                    .GetFiles(expectedDir)
+                    .SingleOrDefault(path => Regex.IsMatch(Path.GetFileName(path), finalNamePattern));
+                return destinationFile is not null;
             }, TimeSpan.FromSeconds(5));
 
-            var fileName = Path.GetFileName(files[0]);
-            Assert.Matches(@"^M_20260122-report_[0-9a-f]{32}_\d{8}\.txt$", fileName);
-            await WaitForFileContentAsync(files[0], "payload", TimeSpan.FromSeconds(5));
+            Assert.NotNull(destinationFile);
+            Assert.Matches(finalNamePattern, Path.GetFileName(destinationFile));
+            await WaitForFileContentAsync(destinationFile, "payload", TimeSpan.FromSeconds(5));
         });
     }
 
@@ -758,7 +834,6 @@ public class MainServiceTests
         var healthyRoot = temp.CreateDir("secondary");
 
         settings.TargetRoots = new[] { offlineRoot, healthyRoot };
-        settings.HealthCheckIntervalMs = 100;
         settings.ReconciliationIntervalMs = 200;
 
         await WithServiceAsync(settings, async service =>
@@ -775,7 +850,7 @@ public class MainServiceTests
             File.Delete(offlineRoot);
             Directory.CreateDirectory(offlineRoot);
 
-            await WaitForTargetHealthAsync(service, offlineRoot, expected: true, TimeSpan.FromSeconds(5));
+            await Task.Delay(settings.MaxRetryDelayMs + 50, TestContext.Current.CancellationToken);
 
             var secondFile = Path.Combine(sourceDir, "second.txt");
             await File.WriteAllTextAsync(secondFile, "two", TestContext.Current.CancellationToken);
@@ -798,7 +873,6 @@ public class MainServiceTests
         await File.WriteAllTextAsync(offlineRoot, "offline", TestContext.Current.CancellationToken);
         var healthyRoot = temp.CreateDir("healthy");
         settings.TargetRoots = new[] { offlineRoot, healthyRoot };
-        settings.HealthCheckIntervalMs = 100;
         settings.ReconciliationIntervalMs = 200;
 
         await WithServiceAsync(settings, async service =>
@@ -829,15 +903,12 @@ public class MainServiceTests
         await File.WriteAllTextAsync(blockedTarget, "offline", TestContext.Current.CancellationToken);
 
         settings.TargetRoots = new[] { blockedTarget };
-        settings.HealthCheckIntervalMs = 100;
         settings.InitialRetryDelayMs = 50;
         settings.MaxRetryDelayMs = 200;
         settings.OperationTimeoutMs = 10_000;
 
         await WithServiceAsync(settings, async service =>
         {
-            await WaitForTargetHealthAsync(service, blockedTarget, expected: false, TimeSpan.FromSeconds(5));
-
             var sourceDir = Path.Combine(settings.SourceRoot, "A1");
             Directory.CreateDirectory(sourceDir);
 
@@ -855,32 +926,29 @@ public class MainServiceTests
 
             Directory.CreateDirectory(blockedTarget);
 
-            await WaitForTargetHealthAsync(service, blockedTarget, expected: true, TimeSpan.FromSeconds(5));
-
             await WaitForFileExistsAsync(destFile, TimeSpan.FromSeconds(10));
         });
     }
 
     [Fact]
-    public async Task TargetHealthMonitor_DetectsMissingDirectoryAndRecovers()
+    public async Task Service_DoesNotCreateHealthProbeFiles()
     {
         using var temp = new TempRoot();
         var settings = CreateDefaultSyncOptions(temp);
 
         var primary = temp.CreateDir("primary");
-        var secondary = temp.CreateDir("secondary");
-        settings.TargetRoots = new[] { primary, secondary };
-        settings.HealthCheckIntervalMs = 100;
+        settings.TargetRoots = new[] { primary };
 
         await WithServiceAsync(settings, async service =>
         {
-            await WaitForTargetHealthAsync(service, primary, expected: true, TimeSpan.FromSeconds(5));
+            var sourceDir = Path.Combine(settings.SourceRoot, "A1");
+            Directory.CreateDirectory(sourceDir);
+            var sourceFile = Path.Combine(sourceDir, "probe-free.txt");
+            await File.WriteAllTextAsync(sourceFile, "payload", TestContext.Current.CancellationToken);
 
-            Directory.Delete(primary, recursive: true);
-            await WaitForTargetHealthAsync(service, primary, expected: false, TimeSpan.FromSeconds(5));
-
-            Directory.CreateDirectory(primary);
-            await WaitForTargetHealthAsync(service, primary, expected: true, TimeSpan.FromSeconds(5));
+            var destination = Path.Combine(primary, "Mapped", "M_probe-free.txt");
+            await WaitForFileExistsAsync(destination, TimeSpan.FromSeconds(5));
+            Assert.Empty(Directory.EnumerateFileSystemEntries(primary, ".filetransfer-health*", SearchOption.TopDirectoryOnly));
         });
     }
 
@@ -960,25 +1028,6 @@ public class MainServiceTests
                 return false;
             }
         }, timeout);
-
-    private static Task WaitForTargetHealthAsync(MainService service, string targetPath, bool expected, TimeSpan timeout) =>
-        WaitForConditionAsync(
-            () => TryGetTargetHealth(service, targetPath, out var health) && health == expected,
-            timeout,
-            TimeSpan.FromMilliseconds(50));
-
-    private static bool TryGetTargetHealth(MainService service, string targetPath, out bool healthy)
-    {
-        healthy = false;
-        var field = typeof(MainService).GetField("_healthRegistry", BindingFlags.NonPublic | BindingFlags.Instance);
-        if (field?.GetValue(service) is not TargetHealthRegistry registry)
-        {
-            return false;
-        }
-
-        healthy = registry.IsHealthy(targetPath);
-        return true;
-    }
 
     // 任意の条件が満たされるまでポーリングし続ける基本的な待機ヘルパー
     private static async Task WaitForConditionAsync(Func<bool> condition, TimeSpan timeout, TimeSpan? pollInterval = null)

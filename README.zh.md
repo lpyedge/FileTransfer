@@ -12,7 +12,7 @@
 - target mode: `FirstAvailable` / `AllHealthyTargets`。
 - ready signal: `StableSize` / `RenameOnly` / `DoneFile`。
 - 預設驗證為輕量的 `LengthAndTimestamp`，必要時可用 `Hash`。
-- bounded copy/delete queue，避免檔案風暴造成無限制記憶體成長。
+- 每一路徑採 Latest-Wins 排程：重複事件會合併，但最新版本不會遺失。
 - reconciliation 可修復漏掉的 watcher 事件、缺失 target、過期 target。
 - 動態路徑快取採用 memory LRU + append-only journal/snapshot。
 - `skipInitialScan` 會把啟動時已存在的檔案寫入 `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal`。保留這個檔案就會一直跳過；日後刪掉它，先前被跳過的舊檔才會重新同步。
@@ -163,9 +163,9 @@ Windows Service 或 systemd 下可能與目前登入使用者語言不同；生�
 `watchEvents.deleted` 只控制是否接收 source 端的刪除事件。
 `backupDeletedTargetsToTrash` 預設為 `false`。維持預設時，刪除事件只會清除 runtime 的刪除狀態，既有 target 檔會保留原位；只有明確設成 `true` 時，對應 target 檔才會搬到 `.trash`。
 
-target 健康檢查會直接在每個 target root 下寫入隱藏的瞬時 `.filetransfer-health.*.probe` 檔，檢查後立即刪除。若仍殘留 probe 檔，通常代表 target 權限或清理失敗，應搭配日誌一併排查。
+target 狀態只由真實複製結果驅動；目標寫入失敗採指數退避，不會建立 probe 檔，也不以 ACL 預判。
 
-檔案複製時會先在目標目錄同層建立唯一的 `.tmp` 暫存檔，成功後再 rename 成正式檔名。FileTransfer 不會建立 `.filetransfer-staging` 目錄。
+複製固定長度快照，先驗證同層唯一 `.tmp` staging 再原子提交。來源變更會取消舊 generation；Hash 模式可偵測同長度內容覆蓋。`OverwriteExisting=false` 不可與 `DeleteSourceAfterCopy=true` 合用。
 
 ## Windows Service 註冊
 

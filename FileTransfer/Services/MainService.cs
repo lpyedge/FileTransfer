@@ -10,7 +10,6 @@ internal sealed class MainService : BackgroundService
     private readonly object _applySync = new();
 
     private FileTransferCoordinator? _transfers;
-    private TargetHealthRegistry? _healthRegistry;
     private CancellationToken _stopToken;
     private bool _subscribed;
 
@@ -49,52 +48,29 @@ internal sealed class MainService : BackgroundService
 
     private void OnOptionsChanged(IReadOnlyList<SyncOptions> updated)
     {
-        _ = Task.Run(() =>
+        try
         {
-            try
+            if (ApplySyncOptions(updated))
             {
-                if (ApplySyncOptions(updated))
-                {
-                    _logger.LogInformation(LogText.Get("ConfigReloadApplied"), updated.Count);
-                }
-                else
-                {
-                    _logger.LogWarning(LogText.Get("ConfigReloadRejected"));
-                }
+                _logger.LogInformation(LogText.Get("ConfigReloadApplied"), updated.Count);
             }
-            catch (Exception ex)
+            else
             {
-                _logger.LogError(ex, LogText.Get("ConfigReloadFailed"));
+                _logger.LogWarning(LogText.Get("ConfigReloadRejected"));
             }
-        }, _stopToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, LogText.Get("ConfigReloadFailed"));
+        }
     }
 
     private bool ApplySyncOptions(IReadOnlyList<SyncOptions> candidates)
     {
         lock (_applySync)
         {
-            var preparedRules = new List<SyncOptions>();
-            var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            foreach (var candidate in candidates)
+            if (!SyncOptionsSetValidator.TryPrepareAll(candidates, _logger, _templateRenderer, out var preparedRules))
             {
-                if (!candidate.TryPrepare(_logger, _templateRenderer, out var prepared))
-                {
-                    return false;
-                }
-
-                if (!seenKeys.Add(prepared.RuntimeKey))
-                {
-                    _logger.LogError(LogText.Get("DuplicateRuntimeId"), prepared.RuntimeKey);
-                    return false;
-                }
-
-                preparedRules.Add(prepared);
-            }
-
-            if (preparedRules.Count == 0)
-            {
-                _logger.LogError(LogText.Get("NoRules"));
                 return false;
             }
 
@@ -147,7 +123,6 @@ internal sealed class MainService : BackgroundService
 
             var firstRuntime = _runtimes.Values.FirstOrDefault();
             _transfers = firstRuntime?.Transfers;
-            _healthRegistry = firstRuntime?.HealthRegistry;
             return true;
         }
     }
@@ -182,7 +157,6 @@ internal sealed class MainService : BackgroundService
 
             _runtimes.Clear();
             _transfers = null;
-            _healthRegistry = null;
         }
     }
 }

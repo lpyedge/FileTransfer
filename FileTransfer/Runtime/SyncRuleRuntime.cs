@@ -8,9 +8,10 @@ internal sealed class SyncRuleRuntime : IDisposable
     private readonly FileTransferCoordinator _transfers;
     private readonly FileWatcherManager _watchers;
     private readonly ReconciliationManager _reconciliation;
-    private readonly TargetHealthMonitor _healthMonitor;
     private readonly StartupInventoryReporter _inventoryReporter;
     private readonly InitialScanSkipStateStore _initialScanSkipStateStore;
+    private readonly StagingFileCleaner _stagingFileCleaner;
+    private readonly HashSet<string> _cleanedTargetRoots = new(PathKeyComparer.Comparer);
 
     private RuntimeState _runtime = RuntimeState.Empty;
     private CancellationToken _stopToken;
@@ -33,6 +34,7 @@ internal sealed class SyncRuleRuntime : IDisposable
         _deletedCounter = deletedCounter;
         _reconcileCounter = reconcileCounter;
         _initialScanSkipStateStore = initialScanSkipStateStore;
+        _stagingFileCleaner = new StagingFileCleaner(logger);
         _runtime = RuntimeState.Create(initialOptions, logger, templateRenderer);
         HealthRegistry = new TargetHealthRegistry(logger);
 
@@ -52,12 +54,12 @@ internal sealed class SyncRuleRuntime : IDisposable
             logger,
             () => Current.Options,
             _transfers.TryResolveTargetPath,
-            _transfers.QueueCopy,
+            _transfers.ObserveSourceVersion,
+            _transfers.RequestCopy,
             HealthRegistry,
             _initialScanSkipStateStore,
             () => _reconcileCounter.Add(1));
 
-        _healthMonitor = new TargetHealthMonitor(logger, HealthRegistry, () => Current.Options);
         _inventoryReporter = new StartupInventoryReporter(logger);
     }
 
@@ -70,8 +72,7 @@ internal sealed class SyncRuleRuntime : IDisposable
     public bool RequiresRecreate(SyncOptions prepared)
     {
         var current = Current.Options;
-        return current.Queue.CopyCapacity != prepared.Queue.CopyCapacity ||
-               current.Queue.DeleteCapacity != prepared.Queue.DeleteCapacity;
+        return current.MaxParallelTransfers != prepared.MaxParallelTransfers;
     }
 
     private RuntimeState Current => Volatile.Read(ref _runtime);
@@ -107,8 +108,12 @@ internal sealed class SyncRuleRuntime : IDisposable
         }
 
         _watchers.Update(prepared);
+        var newTargetRoots = prepared.TargetRoots.Where(root => _cleanedTargetRoots.Add(root)).ToArray();
+        if (newTargetRoots.Length > 0)
+        {
+            _stagingFileCleaner.Clean(newTargetRoots, prepared.OperationTimeoutMs);
+        }
         _reconciliation.Configure(prepared, _stopToken);
-        _healthMonitor.Configure(prepared, _stopToken);
         _initialized = true;
 
         _logger.LogInformation(
@@ -119,8 +124,14 @@ internal sealed class SyncRuleRuntime : IDisposable
         _inventoryReporter.LogIfNeeded(prepared);
     }
 
-    private void OnChange(FileChangeKind watcherEvent, string path)
+    private void OnChange(FileChangeKind watcherEvent, string path, string? oldPath)
     {
+        if (watcherEvent == FileChangeKind.Renamed)
+        {
+            HandleRename(path, oldPath);
+            return;
+        }
+
         var runtime = Current;
         var settings = runtime.Options;
 
@@ -147,6 +158,79 @@ internal sealed class SyncRuleRuntime : IDisposable
         }
 
         _transfers.QueueCopy(path, FileProcessingRules.EventLabel(watcherEvent), _stopToken);
+    }
+
+    private void HandleRename(string newPath, string? oldPath)
+    {
+        // A rename represents two independent operations.  In particular, a new
+        // path that is excluded from copying must not prevent the old path from
+        // being considered for mirroring deletion.
+        QueueRenamedNewPath(newPath);
+
+        if (!string.IsNullOrWhiteSpace(oldPath))
+        {
+            ScheduleRenamedOldPath(oldPath);
+        }
+    }
+
+    private void QueueRenamedNewPath(string path)
+    {
+        var runtime = Current;
+        var settings = runtime.Options;
+
+        if (!FileProcessingRules.IsEventEnabled(FileChangeKind.Renamed, settings))
+        {
+            _logger.LogDebug(LogText.Get("EventDisabled"), settings.RuleId, FileChangeKind.Renamed, path);
+            return;
+        }
+
+        if (!FileProcessingRules.ShouldProcess(path, runtime.FileExtensions, _logger))
+        {
+            return;
+        }
+
+        if (runtime.PathMapper.IsExcluded(path))
+        {
+            _logger.LogDebug(LogText.Get("EventIgnoredByMapping"), settings.RuleId, path);
+            return;
+        }
+
+        if (_transfers.TrySkipInitialScan(path, LogText.Get("CopyContext")))
+        {
+            return;
+        }
+
+        _transfers.QueueCopy(path, FileProcessingRules.EventLabel(FileChangeKind.Renamed), _stopToken);
+    }
+
+    private void ScheduleRenamedOldPath(string path)
+    {
+        var runtime = Current;
+        var settings = runtime.Options;
+
+        if (!FileProcessingRules.IsEventEnabled(FileChangeKind.Deleted, settings))
+        {
+            _logger.LogDebug(LogText.Get("DeleteEventDisabled"), settings.RuleId, path);
+            return;
+        }
+
+        if (!FileProcessingRules.ShouldProcess(path, runtime.FileExtensions, _logger))
+        {
+            return;
+        }
+
+        if (runtime.PathMapper.IsExcluded(path))
+        {
+            _logger.LogDebug(LogText.Get("DeleteEventIgnoredByMapping"), settings.RuleId, path);
+            return;
+        }
+
+        if (_transfers.TrySkipInitialScan(path, LogText.Get("DeleteSyncContext")))
+        {
+            return;
+        }
+
+        _transfers.ScheduleMirrorDelete(path, _stopToken);
     }
 
     private void OnDelete(string path)
@@ -189,7 +273,6 @@ internal sealed class SyncRuleRuntime : IDisposable
         _disposed = true;
         _watchers.Dispose();
         _reconciliation.Dispose();
-        _healthMonitor.Dispose();
         _transfers.Dispose();
         _initialScanSkipStateStore.Dispose();
     }

@@ -6,7 +6,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- Target health checks now use transient probe files written directly under each target root and delete them immediately after each check.
+- Target availability is now driven by real operations with exponential backoff; no health probe files are created.
 - In-flight copies now use a unique sibling `.tmp` file in the destination directory instead of creating `.filetransfer-staging` directories.
 - Delete handling keeps existing target files in place by default. `.trash` backups now require `backupDeletedTargetsToTrash: true`.
 - `skipInitialScan` now writes a persistent per-rule initial-scan skip journal under `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal`. Those files remain skipped until the journal is deleted, even if `skipInitialScan` is later set to `false`.
@@ -23,7 +23,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - `FirstAvailable` and `AllHealthyTargets` target modes.
 - `StableSize`, `RenameOnly`, and `DoneFile` readiness modes.
 - `LengthAndTimestamp` and `Hash` verification modes.
-- Bounded copy/delete queues.
+- Per-path Latest-Wins scheduling.
 - Reconciliation scan for missed events, missing targets, and stale targets.
 - Memory LRU + append-only journal dynamic path cache.
 - Configurable runtime state/log directories.

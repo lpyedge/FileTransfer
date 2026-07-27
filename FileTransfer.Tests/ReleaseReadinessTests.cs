@@ -127,7 +127,7 @@ public class ReleaseReadinessTests
             Assert.Contains("backupDeletedTargetsToTrash", content, StringComparison.Ordinal);
             Assert.Contains(".trash", content, StringComparison.Ordinal);
             Assert.Contains(".tmp", content, StringComparison.Ordinal);
-            Assert.Contains(".filetransfer-health", content, StringComparison.Ordinal);
+            Assert.DoesNotContain(".filetransfer-health", content, StringComparison.Ordinal);
         }
     }
 

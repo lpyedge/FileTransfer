@@ -17,7 +17,6 @@ internal sealed class SyncOptions
     public bool SkipInitialScan { get; set; }
     public ComparisonMode ComparisonMode { get; set; } = ComparisonMode.LengthAndTimestamp;
     public ReadySignalOptions ReadySignal { get; set; } = new();
-    public QueueOptions Queue { get; set; } = new();
     public WatchEventOptions WatchEvents { get; set; } = new();
     public List<PathRule> PathRules { get; set; } = new();
 
@@ -32,7 +31,6 @@ internal sealed class SyncOptions
     public int InitialRetryDelayMs { get; set; } = 200;
     public int MaxRetryDelayMs { get; set; } = 3000;
     public int OperationTimeoutMs { get; set; } = 300000;
-    public int HealthCheckIntervalMs { get; set; } = 10000;
     public bool BackupDeletedTargetsToTrash { get; set; }
     public string[]? NotifyFilters { get; set; }
 
@@ -72,6 +70,12 @@ internal sealed class SyncOptions
         prepared = Clone();
         prepared.ApplyDefaults();
 
+        if (!prepared.OverwriteExisting && prepared.DeleteSourceAfterCopy)
+        {
+            logger.LogError("Rule {RuleId}: OverwriteExisting=false cannot be combined with DeleteSourceAfterCopy=true.", prepared.RuleId);
+            return false;
+        }
+
         if (!prepared.ValidateRequiredValues(logger) ||
             !prepared.TryNormalizePaths(logger) ||
             !prepared.ValidatePathRules(logger, templateRenderer))
@@ -103,7 +107,6 @@ internal sealed class SyncOptions
         SkipInitialScan = SkipInitialScan,
         ComparisonMode = ComparisonMode,
         ReadySignal = ReadySignal?.Clone() ?? new ReadySignalOptions(),
-        Queue = Queue?.Clone() ?? new QueueOptions(),
         WatchEvents = WatchEvents?.Clone() ?? new WatchEventOptions(),
         PathRules = PathRules?.Select(rule => rule.Clone()).ToList() ?? new List<PathRule>(),
         BufferSize = BufferSize,
@@ -117,7 +120,6 @@ internal sealed class SyncOptions
         InitialRetryDelayMs = InitialRetryDelayMs,
         MaxRetryDelayMs = MaxRetryDelayMs,
         OperationTimeoutMs = OperationTimeoutMs,
-        HealthCheckIntervalMs = HealthCheckIntervalMs,
         BackupDeletedTargetsToTrash = BackupDeletedTargetsToTrash,
         NotifyFilters = NotifyFilters?.ToArray()
     };
@@ -130,8 +132,6 @@ internal sealed class SyncOptions
         FileExtensions ??= Array.Empty<string>();
         ReadySignal ??= new ReadySignalOptions();
         ReadySignal.ApplyDefaults();
-        Queue ??= new QueueOptions();
-        Queue.ApplyDefaults();
         WatchEvents ??= new WatchEventOptions();
         PathRules ??= new List<PathRule>();
 
@@ -153,7 +153,6 @@ internal sealed class SyncOptions
         ReconciliationIntervalMs = ReconciliationIntervalMs > 0 ? ReconciliationIntervalMs : 60000;
         MaxReconciliationFilesPerRun = MaxReconciliationFilesPerRun > 0 ? MaxReconciliationFilesPerRun : 10000;
         MaxReconciliationDurationMs = MaxReconciliationDurationMs > 0 ? MaxReconciliationDurationMs : 30000;
-        HealthCheckIntervalMs = HealthCheckIntervalMs > 0 ? HealthCheckIntervalMs : 10000;
     }
 
     public IEnumerable<string> Validate()
@@ -355,7 +354,6 @@ internal sealed class SyncOptions
         public bool SkipInitialScan { get; init; }
         public ComparisonMode ComparisonMode { get; init; } = ComparisonMode.LengthAndTimestamp;
         public ReadySignalOptions ReadySignal { get; init; } = new();
-        public QueueOptions Queue { get; init; } = new();
         public WatchEventOptions WatchEvents { get; init; } = new();
         public List<PathRule> PathRules { get; init; } = new();
         public int BufferSize { get; init; } = 0;
@@ -369,7 +367,6 @@ internal sealed class SyncOptions
         public int InitialRetryDelayMs { get; init; } = 200;
         public int MaxRetryDelayMs { get; init; } = 3000;
         public int OperationTimeoutMs { get; init; } = 300000;
-        public int HealthCheckIntervalMs { get; init; } = 10000;
         public bool BackupDeletedTargetsToTrash { get; init; }
         public string[]? NotifyFilters { get; init; }
 
@@ -408,12 +405,10 @@ internal sealed class SyncOptions
             ReadInt(section, nameof(InitialRetryDelayMs), value => options.InitialRetryDelayMs = value);
             ReadInt(section, nameof(MaxRetryDelayMs), value => options.MaxRetryDelayMs = value);
             ReadInt(section, nameof(OperationTimeoutMs), value => options.OperationTimeoutMs = value);
-            ReadInt(section, nameof(HealthCheckIntervalMs), value => options.HealthCheckIntervalMs = value);
             ReadBool(section, nameof(BackupDeletedTargetsToTrash), value => options.BackupDeletedTargetsToTrash = value);
             ReadEnum<TargetMode>(section, nameof(TargetMode), value => options.TargetMode = value);
             ReadComparisonMode(section, value => options.ComparisonMode = value);
             options.ReadySignal = ReadySignalOptions.FromConfiguration(section.GetSection(nameof(ReadySignal)));
-            options.Queue = QueueOptions.FromConfiguration(section.GetSection(nameof(Queue)));
             options.WatchEvents = WatchEventOptions.FromConfiguration(section.GetSection(nameof(WatchEvents)));
 
             return options.Build();
@@ -439,7 +434,6 @@ internal sealed class SyncOptions
                     SkipInitialScan = SkipInitialScan,
                     ComparisonMode = ComparisonMode,
                     ReadySignal = ReadySignal.Clone(),
-                    Queue = Queue.Clone(),
                     WatchEvents = WatchEvents.Clone(),
                     PathRules = PathRules.Select(rule => rule.Clone()).ToList(),
                     BufferSize = BufferSize,
@@ -453,7 +447,6 @@ internal sealed class SyncOptions
                     InitialRetryDelayMs = InitialRetryDelayMs,
                     MaxRetryDelayMs = MaxRetryDelayMs,
                     OperationTimeoutMs = OperationTimeoutMs,
-                    HealthCheckIntervalMs = HealthCheckIntervalMs,
                     BackupDeletedTargetsToTrash = BackupDeletedTargetsToTrash,
                     NotifyFilters = NotifyFilters?.ToArray()
                 };
@@ -478,7 +471,6 @@ internal sealed class SyncOptions
             public bool SkipInitialScan { get; set; }
             public ComparisonMode ComparisonMode { get; set; } = ComparisonMode.LengthAndTimestamp;
             public ReadySignalOptions ReadySignal { get; set; } = new();
-            public QueueOptions Queue { get; set; } = new();
             public WatchEventOptions WatchEvents { get; set; } = new();
             public List<PathRule> PathRules { get; set; } = new();
             public int BufferSize { get; set; } = 0;
@@ -492,7 +484,6 @@ internal sealed class SyncOptions
             public int InitialRetryDelayMs { get; set; } = 200;
             public int MaxRetryDelayMs { get; set; } = 3000;
             public int OperationTimeoutMs { get; set; } = 300000;
-            public int HealthCheckIntervalMs { get; set; } = 10000;
             public bool BackupDeletedTargetsToTrash { get; set; }
             public string[]? NotifyFilters { get; set; }
 
@@ -511,7 +502,6 @@ internal sealed class SyncOptions
                 SkipInitialScan = SkipInitialScan,
                 ComparisonMode = ComparisonMode,
                 ReadySignal = ReadySignal,
-                Queue = Queue,
                 WatchEvents = WatchEvents,
                 PathRules = PathRules,
                 BufferSize = BufferSize,
@@ -525,7 +515,6 @@ internal sealed class SyncOptions
                 InitialRetryDelayMs = InitialRetryDelayMs,
                 MaxRetryDelayMs = MaxRetryDelayMs,
                 OperationTimeoutMs = OperationTimeoutMs,
-                HealthCheckIntervalMs = HealthCheckIntervalMs,
                 BackupDeletedTargetsToTrash = BackupDeletedTargetsToTrash,
                 NotifyFilters = NotifyFilters
             };

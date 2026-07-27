@@ -110,6 +110,20 @@ internal static class PathHelper
         return IsChildRelativePath(relative);
     }
 
+    public static bool IsStrictChildPath(string root, string path)
+    {
+        try
+        {
+            var normalizedRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            var normalizedPath = Path.GetFullPath(path);
+            return !PathEquals(normalizedRoot, normalizedPath) && IsSubPath(normalizedRoot, normalizedPath);
+        }
+        catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     public static string BuildStagingPath(string destinationPath)
     {
         return $"{destinationPath}.{Guid.NewGuid():N}.tmp";

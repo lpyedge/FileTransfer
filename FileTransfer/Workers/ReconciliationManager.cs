@@ -5,7 +5,8 @@ internal sealed class ReconciliationManager : IDisposable
     private readonly ILogger _logger;
     private readonly Func<SyncOptions> _getSyncOptions;
     private readonly TryResolveTargetPathDelegate _tryResolveTargetPath;
-    private readonly Action<string, string, CancellationToken> _queueCopy;
+    private readonly Action<string, SourceFileStamp, string, CancellationToken> _observeSourceVersion;
+    private readonly Action<string, string, CancellationToken> _requestCopy;
     private readonly TargetHealthRegistry _healthRegistry;
     private readonly InitialScanSkipStateStore _initialScanSkipStateStore;
     private readonly Action _onRunCompleted;
@@ -19,7 +20,8 @@ internal sealed class ReconciliationManager : IDisposable
         ILogger logger,
         Func<SyncOptions> getSyncOptions,
         TryResolveTargetPathDelegate tryResolveTargetPath,
-        Action<string, string, CancellationToken> queueCopy,
+        Action<string, SourceFileStamp, string, CancellationToken> observeSourceVersion,
+        Action<string, string, CancellationToken> requestCopy,
         TargetHealthRegistry healthRegistry,
         InitialScanSkipStateStore initialScanSkipStateStore,
         Action onRunCompleted)
@@ -27,7 +29,8 @@ internal sealed class ReconciliationManager : IDisposable
         _logger = logger;
         _getSyncOptions = getSyncOptions;
         _tryResolveTargetPath = tryResolveTargetPath;
-        _queueCopy = queueCopy;
+        _observeSourceVersion = observeSourceVersion;
+        _requestCopy = requestCopy;
         _healthRegistry = healthRegistry;
         _initialScanSkipStateStore = initialScanSkipStateStore;
         _onRunCompleted = onRunCompleted;
@@ -40,7 +43,7 @@ internal sealed class ReconciliationManager : IDisposable
         Action<string, string, CancellationToken> queueCopy,
         TargetHealthRegistry healthRegistry,
         Action onRunCompleted)
-        : this(logger, getSyncOptions, tryResolveTargetPath, queueCopy, healthRegistry, new InitialScanSkipStateStore(logger), onRunCompleted)
+        : this(logger, getSyncOptions, tryResolveTargetPath, (_, _, _, _) => { }, queueCopy, healthRegistry, new InitialScanSkipStateStore(logger), onRunCompleted)
     {
     }
 
@@ -74,6 +77,7 @@ internal sealed class ReconciliationManager : IDisposable
             }
             catch (OperationCanceledException)
             {
+                return;
             }
             catch (Exception ex)
             {
@@ -102,11 +106,7 @@ internal sealed class ReconciliationManager : IDisposable
             return Task.CompletedTask;
         }
 
-        if (_healthRegistry.GetPreferredTarget(settings.TargetRoots) is null)
-        {
-            _logger.LogWarning(LogText.Get("ReconciliationNoHealthyTargets"));
-        }
-        else if ((settings.WatchEvents.Created || settings.WatchEvents.Changed) && Directory.Exists(settings.SourceRoot))
+        if ((settings.WatchEvents.Created || settings.WatchEvents.Changed) && Directory.Exists(settings.SourceRoot))
         {
             ReconcileMissingCopies(settings, ct);
         }
@@ -149,11 +149,39 @@ internal sealed class ReconciliationManager : IDisposable
                 continue;
             }
 
+            if (!TryGetSourceStamp(settings, file, out var stamp))
+            {
+                continue;
+            }
+
+            _observeSourceVersion(file, stamp, "Reconcile", ct);
+
             if (ShouldQueueMissingCopy(settings, file, ct))
             {
                 _logger.LogInformation(LogText.Get("ReconciliationMismatchFound"), settings.RuleId, file);
-                _queueCopy(file, "Reconcile", ct);
+                _requestCopy(file, "Reconcile", ct);
             }
+        }
+    }
+
+    private bool TryGetSourceStamp(SyncOptions settings, string file, out SourceFileStamp stamp)
+    {
+        stamp = default;
+        try
+        {
+            var info = new FileInfo(file);
+            if (!info.Exists)
+            {
+                return false;
+            }
+
+            stamp = new SourceFileStamp(info.Length, info.LastWriteTimeUtc);
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogDebug(ex, LogText.Get("ReconciliationSourceInfoFailed"), settings.RuleId, file);
+            return false;
         }
     }
 
@@ -191,11 +219,11 @@ internal sealed class ReconciliationManager : IDisposable
             }
 
             hasResolvableTarget = true;
-            var healthy = _healthRegistry.IsHealthy(targetRoot);
+            var canAttempt = _healthRegistry.CanAttempt(targetRoot, DateTimeOffset.UtcNow);
             var current = IsTargetCurrent(sourceInfo, candidate, settings, ct);
             currentInAnyTarget |= current;
 
-            if (!current && healthy)
+            if (!current && canAttempt)
             {
                 missingOrStaleHealthyTarget = true;
             }

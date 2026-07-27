@@ -12,7 +12,7 @@ Languages: **English** | [日本語](README.ja.md) | [繁體中文](README.zh.md
 - Target modes: `FirstAvailable` and `AllHealthyTargets`.
 - File readiness modes: `StableSize`, `RenameOnly`, and `DoneFile`.
 - Default verification: `LengthAndTimestamp`; optional stronger `Hash` mode.
-- Bounded copy/delete queues to avoid unlimited memory growth.
+- Per-path Latest-Wins scheduling: repeated events coalesce without dropping the newest version.
 - Reconciliation scan to recover missed watcher events, missing targets, and stale targets.
 - Dynamic path cache using memory LRU + append-only journal/snapshot.
 - `skipInitialScan` now seeds a persistent startup skip journal under `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal` for files that already existed when the service first started. Keep the journal file to preserve the skip list; delete it later if you want those older files to sync.
@@ -163,9 +163,9 @@ Structured fields such as `RuleId`, `RuntimeId`, `SourcePath`, and `TargetPath` 
 `watchEvents.deleted` only controls whether source-side delete events are observed.
 `backupDeletedTargetsToTrash` defaults to `false`. With the default, delete events clear runtime delete state and keep existing target files in place. Set it to `true` only when matched target files should be moved under `.trash`.
 
-Target health checks write a hidden transient `.filetransfer-health.*.probe` file directly under each target root and delete it immediately after the check. A leftover probe file usually indicates a target permission or cleanup failure.
+Target availability is learned only from real copy operations. Failed target writes use exponential backoff; no ACL precheck or health probe file is created.
 
-Copies stream into a unique sibling `.tmp` file in the destination directory and rename it into the final path only after a successful write. FileTransfer does not create `.filetransfer-staging` directories.
+Copies use a fixed-length source snapshot and validate a unique sibling `.tmp` staging file before atomically committing it. A changed source cancels the old generation; Hash mode also detects same-length content replacement. `OverwriteExisting=false` cannot be combined with `DeleteSourceAfterCopy=true`.
 
 ## Windows Service registration
 

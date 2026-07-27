@@ -1,18 +1,30 @@
+internal readonly record struct TargetAttemptState(
+    int ConsecutiveFailures,
+    DateTimeOffset NextAttemptUtc,
+    string? LastReason);
+
 internal sealed class TargetHealthRegistry
 {
-    private readonly ConcurrentDictionary<string, bool> _states = new(PathKeyComparer.Comparer);
+    private readonly object _sync = new();
+    private readonly Dictionary<string, TargetAttemptState> _states = new(PathKeyComparer.Comparer);
+    private readonly HashSet<string> _configuredTargets = new(PathKeyComparer.Comparer);
     private readonly ILogger _logger;
+    private bool _hasSynchronizedTargets;
 
     public TargetHealthRegistry(ILogger logger)
     {
         _logger = logger;
     }
 
-    public event Action<string, bool>? StateChanged;
-
     public void Initialize(IEnumerable<string> targets)
     {
-        _states.Clear();
+        lock (_sync)
+        {
+            _states.Clear();
+            _configuredTargets.Clear();
+            _hasSynchronizedTargets = false;
+        }
+
         SyncTargets(targets);
     }
 
@@ -22,83 +34,126 @@ internal sealed class TargetHealthRegistry
             targets.Where(target => !string.IsNullOrWhiteSpace(target)),
             PathKeyComparer.Comparer);
 
-        foreach (var existing in _states.Keys.ToArray())
+        lock (_sync)
         {
-            if (desired.Contains(existing))
+            _hasSynchronizedTargets = true;
+            _configuredTargets.Clear();
+            _configuredTargets.UnionWith(desired);
+
+            foreach (var existing in _states.Keys.ToArray())
             {
-                continue;
+                if (!desired.Contains(existing))
+                {
+                    _states.Remove(existing);
+                }
             }
 
-            if (_states.TryRemove(existing, out _))
+            foreach (var target in desired)
             {
-                StateChanged?.Invoke(existing, false);
-            }
-        }
-
-        foreach (var target in desired)
-        {
-            if (_states.TryAdd(target, true))
-            {
-                StateChanged?.Invoke(target, true);
+                _states.TryAdd(target, default);
             }
         }
     }
 
-    public bool IsHealthy(string target)
+    public bool CanAttempt(string target, DateTimeOffset now)
     {
-        return !_states.TryGetValue(target, out var healthy) || healthy;
+        lock (_sync)
+        {
+            return !_states.TryGetValue(target, out var state) || now >= state.NextAttemptUtc;
+        }
     }
 
-    public void Update(string target, bool healthy, string? reason = null)
+    public DateTimeOffset? GetNextAttemptUtc(IEnumerable<string> targets, DateTimeOffset now)
+    {
+        lock (_sync)
+        {
+            DateTimeOffset? earliest = null;
+            foreach (var target in targets)
+            {
+                if (!_states.TryGetValue(target, out var state) || now >= state.NextAttemptUtc)
+                {
+                    continue;
+                }
+
+                if (earliest is null || state.NextAttemptUtc < earliest)
+                {
+                    earliest = state.NextAttemptUtc;
+                }
+            }
+
+            return earliest;
+        }
+    }
+
+    public void RecordSuccess(string target, string? reason = null)
     {
         if (string.IsNullOrWhiteSpace(target))
         {
             return;
         }
 
-        var hadPrevious = _states.TryGetValue(target, out var previous);
-        _states[target] = healthy;
-        StateChanged?.Invoke(target, healthy);
+        var recovered = false;
+        lock (_sync)
+        {
+            if (_hasSynchronizedTargets && !_configuredTargets.Contains(target))
+            {
+                return;
+            }
 
-        if (!hadPrevious || previous == healthy)
+            var hadPrevious = _states.TryGetValue(target, out var previous);
+            _states[target] = default;
+            recovered = hadPrevious && previous.ConsecutiveFailures > 0;
+        }
+
+        if (recovered)
+        {
+            _logger.LogInformation(LogText.Get("TargetRecovered"), target, LogText.Get("HealthStateHealthy"), reason ?? string.Empty);
+        }
+    }
+
+    public void RecordFailure(
+        string target,
+        DateTimeOffset now,
+        int initialDelayMs,
+        int maxDelayMs,
+        string? reason = null)
+    {
+        if (string.IsNullOrWhiteSpace(target))
         {
             return;
         }
 
-        var stateText = healthy ? LogText.Get("HealthStateHealthy") : LogText.Get("HealthStateUnhealthy");
-        if (healthy)
+        var enteringFailure = false;
+        lock (_sync)
         {
-            _logger.LogWarning(LogText.Get("TargetRecovered"), target, stateText, reason ?? string.Empty);
+            // Once configuration has supplied the target set, a result that
+            // arrives after a target was removed is stale and must not revive it.
+            if (_hasSynchronizedTargets && !_configuredTargets.Contains(target))
+            {
+                return;
+            }
+
+            var previous = _states.TryGetValue(target, out var existing) ? existing : default;
+            var failures = Math.Min(previous.ConsecutiveFailures + 1, 21);
+            var minimum = Math.Max(1, initialDelayMs);
+            var maximum = Math.Max(minimum, maxDelayMs);
+            var multiplier = 1L << Math.Min(failures - 1, 20);
+            var delay = Math.Min((long)maximum, minimum * multiplier);
+            _states[target] = new TargetAttemptState(failures, now.AddMilliseconds(delay), reason);
+            enteringFailure = previous.ConsecutiveFailures == 0;
         }
-        else
+
+        if (enteringFailure)
         {
-            _logger.LogWarning(LogText.Get("TargetStateChanged"), target, stateText, reason ?? string.Empty);
+            _logger.LogWarning(LogText.Get("TargetStateChanged"), target, LogText.Get("HealthStateUnhealthy"), reason ?? string.Empty);
         }
     }
 
-    public bool AnyHealthyTarget(IEnumerable<string> targets)
+    internal bool TryGetState(string target, out TargetAttemptState state)
     {
-        foreach (var target in targets)
+        lock (_sync)
         {
-            if (IsHealthy(target))
-            {
-                return true;
-            }
+            return _states.TryGetValue(target, out state);
         }
-
-        return false;
-    }
-
-    public string? GetPreferredTarget(IEnumerable<string> targets)
-    {
-        foreach (var target in targets)
-        {
-            if (IsHealthy(target))
-            {
-                return target;
-            }
-        }
-
-        return null;
     }
 }

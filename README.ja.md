@@ -12,7 +12,7 @@
 - target mode: `FirstAvailable` / `AllHealthyTargets`。
 - ready signal: `StableSize` / `RenameOnly` / `DoneFile`。
 - 既定の検証は軽量な `LengthAndTimestamp`。必要に応じて `Hash` を使用できます。
-- bounded copy/delete queue により、ファイル集中時の無制限メモリ増加を防ぎます。
+- パス単位の Latest-Wins スケジューリングにより、最新イベントを失わず重複を統合します。
 - reconciliation により、監視イベント漏れ、未転送 target、古い target を補修します。
 - 動的パスは memory LRU + append-only journal/snapshot で永続化します。
 - `skipInitialScan` は、起動時に既に存在していたファイルを `paths.stateDir/<ruleId>/initial-scan-skipped-files.journal` に記録します。journal を残している間はずっとスキップされ、後で削除すると過去にスキップされたファイルも再同期できます。
@@ -164,9 +164,9 @@ Windows Service や systemd では、現在ログイン中のユーザーの言�
 `watchEvents.deleted` は source 側の削除イベントを受け取るかどうかだけを制御します。
 `backupDeletedTargetsToTrash` の既定値は `false` です。既定のままでは削除イベント時に runtime の削除状態だけを整理し、既存の target ファイルはその場に残します。対応する target ファイルを `.trash` へ退避したい場合だけ `true` を明示してください。
 
-target 健全性チェックは、各 target root 直下に隠し属性付きの瞬時 `.filetransfer-health.*.probe` ファイルを書き込み、確認後すぐ削除します。probe ファイルが残る場合は、権限または削除失敗を疑ってログと合わせて確認してください。
+target 状態は実際のコピー結果だけで更新されます。書き込み失敗は指数バックオフし、probe ファイルや ACL による事前判定は使用しません。
 
-コピー中は、最終出力先と同じディレクトリに一意な `.tmp` 一時ファイルを書き込み、成功後に正式名へ rename します。FileTransfer は `.filetransfer-staging` ディレクトリを作成しません。
+コピーは固定長スナップショットを使用し、一意な同階層 `.tmp` staging を検証してから原子的に確定します。source 変更時は旧 generation を取り消します。`OverwriteExisting=false` と `DeleteSourceAfterCopy=true` の併用は無効です。
 
 ## Windows Service 登録
 

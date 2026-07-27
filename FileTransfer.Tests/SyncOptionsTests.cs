@@ -16,8 +16,7 @@ public class SyncOptionsTests
             InitialRetryDelayMs = 0,
             MaxRetryDelayMs = 100,
             OperationTimeoutMs = 0,
-            ReconciliationIntervalMs = 0,
-            HealthCheckIntervalMs = 0
+            ReconciliationIntervalMs = 0
         };
 
         settings.ApplyDefaults();
@@ -31,13 +30,11 @@ public class SyncOptionsTests
         Assert.Equal(262144, settings.HashBufferSize);
         Assert.Equal(65536, settings.WatcherInternalBufferSize);
         Assert.NotNull(settings.ReadySignal);
-        Assert.NotNull(settings.Queue);
         Assert.Equal(1, settings.MaxParallelTransfers);
         Assert.Equal(200, settings.InitialRetryDelayMs);
         Assert.Equal(800, settings.MaxRetryDelayMs);
         Assert.Equal(300000, settings.OperationTimeoutMs);
         Assert.Equal(60000, settings.ReconciliationIntervalMs);
-        Assert.Equal(10000, settings.HealthCheckIntervalMs);
         Assert.False(settings.BackupDeletedTargetsToTrash);
     }
 
@@ -130,13 +127,11 @@ public class SyncOptionsTests
             ["Rules:0:WatcherInternalBufferSize"] = "32768",
             ["Rules:0:ReadySignal:Mode"] = "StableSize",
             ["Rules:0:ReadySignal:StableChecks"] = "4",
-            ["Rules:0:Queue:CopyCapacity"] = "123",
             ["Rules:0:ReconciliationIntervalMs"] = "1500",
             ["Rules:0:MaxParallelTransfers"] = "8",
             ["Rules:0:InitialRetryDelayMs"] = "75",
             ["Rules:0:MaxRetryDelayMs"] = "900",
             ["Rules:0:OperationTimeoutMs"] = "12000",
-            ["Rules:0:HealthCheckIntervalMs"] = "3000",
             ["Rules:0:BackupDeletedTargetsToTrash"] = "true",
             ["Rules:0:ComparisonMode"] = "Hash",
             ["Rules:0:NotifyFilters:0"] = "FileName",
@@ -168,13 +163,11 @@ public class SyncOptionsTests
         Assert.Equal(32768, settings.WatcherInternalBufferSize);
         Assert.Equal(ReadySignalMode.StableSize, settings.ReadySignal.Mode);
         Assert.Equal(4, settings.ReadySignal.StableChecks);
-        Assert.Equal(123, settings.Queue.CopyCapacity);
         Assert.Equal(1500, settings.ReconciliationIntervalMs);
         Assert.Equal(8, settings.MaxParallelTransfers);
         Assert.Equal(75, settings.InitialRetryDelayMs);
         Assert.Equal(900, settings.MaxRetryDelayMs);
         Assert.Equal(12000, settings.OperationTimeoutMs);
-        Assert.Equal(3000, settings.HealthCheckIntervalMs);
         Assert.True(settings.BackupDeletedTargetsToTrash);
         Assert.Equal(new[] { "FileName", "LastWrite" }, settings.NotifyFilters);
     }
@@ -264,6 +257,24 @@ public class SyncOptionsTests
 
         Assert.True(success);
         Assert.Single(prepared.TargetRoots);
+    }
+
+    [Fact]
+    public void OverwriteFalseAndDeleteSourceTrue_IsRejected()
+    {
+        using var temp = new TempRoot();
+        var logger = new ListLogger();
+        var settings = new SyncOptions
+        {
+            RuleId = "unsafe-rule",
+            SourceRoot = temp.CreateDir("source"),
+            TargetRoots = new[] { temp.CreateDir("target") },
+            OverwriteExisting = false,
+            DeleteSourceAfterCopy = true
+        };
+
+        Assert.False(settings.TryPrepare(logger, new PathTemplateRenderer(), out _));
+        Assert.Contains(logger.Entries, entry => entry.Message.Contains("unsafe-rule") && entry.Message.Contains("OverwriteExisting"));
     }
 
 }

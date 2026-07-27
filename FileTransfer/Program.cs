@@ -102,22 +102,10 @@ static bool ValidateConfiguration(IConfiguration configuration, string selectedL
     {
         var options = SyncOptions.LoadFromConfiguration(configuration);
         var templateRenderer = new PathTemplateRenderer();
-        var allValid = true;
-        foreach (var option in options)
-        {
-            if (!option.TryPrepare(NullLogger.Instance, templateRenderer, out _))
-            {
-                allValid = false;
-            }
-        }
-
-        if (options.Count == 0)
-        {
-            allValid = false;
-        }
+        var allValid = SyncOptionsSetValidator.TryPrepareAll(options, NullLogger.Instance, templateRenderer, out var preparedRules);
 
         Console.WriteLine(allValid
-            ? string.Format(CultureInfo.CurrentUICulture, LogText.Get("ConfigurationValid"), options.Count)
+            ? string.Format(CultureInfo.CurrentUICulture, LogText.Get("ConfigurationValid"), preparedRules.Count)
             : LogText.Get("ConfigurationInvalid"));
         Console.WriteLine($"Language: {selectedLanguage}");
         return allValid;

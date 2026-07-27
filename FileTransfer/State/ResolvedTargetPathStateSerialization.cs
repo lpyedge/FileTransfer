@@ -158,8 +158,9 @@ internal sealed class ResolvedTargetPathStateStore : IDisposable
         {
             _writerTask.Wait(TimeSpan.FromSeconds(5));
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogDebug(ex, "Target-path state writer did not stop within the disposal window.");
         }
     }
 
@@ -352,6 +353,7 @@ internal sealed class ResolvedTargetPathStateStore : IDisposable
         }
         catch (OperationCanceledException)
         {
+            return;
         }
         catch (Exception ex)
         {

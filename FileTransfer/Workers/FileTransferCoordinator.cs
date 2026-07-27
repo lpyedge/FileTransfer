@@ -5,19 +5,11 @@ internal sealed class FileTransferCoordinator : IDisposable
     private readonly Func<SyncOptions> _getSyncOptions;
     private readonly Func<PathMapper?> _getPathMapper;
     private readonly InitialScanSkipStateStore _initialScanSkipStateStore;
-    private readonly TransferConcurrencyGate _concurrencyGate = new(1);
-    private readonly InFlightOperationTracker _inflightTracker = new();
     private readonly Counter<long> _copiedCounter;
     private readonly Counter<long> _deletedCounter;
     private readonly ResolvedTargetPathCache _resolvedTargets;
-    private readonly ConcurrentDictionary<string, byte> _pendingCopyRequests = new(PathKeyComparer.Comparer);
-    private readonly ConcurrentDictionary<string, byte> _pendingDeleteRequests = new(PathKeyComparer.Comparer);
-    private readonly Channel<CopyRequest> _copyQueue;
-    private readonly Channel<DeleteRequest> _deleteQueue;
-    private readonly CancellationTokenSource _disposeCts = new();
-    private readonly object _workerSync = new();
-    private readonly List<Task> _copyWorkers = new();
-    private readonly List<Task> _deleteWorkers = new();
+    private readonly LatestPathWorkScheduler _scheduler;
+    private readonly IStagingFileCopier _stagingFileCopier;
     private int _disposed;
 
     public FileTransferCoordinator(
@@ -28,7 +20,8 @@ internal sealed class FileTransferCoordinator : IDisposable
         Counter<long> copiedCounter,
         Counter<long> deletedCounter,
         ResolvedTargetPathStateStore resolvedTargetPathStateStore,
-        InitialScanSkipStateStore initialScanSkipStateStore)
+        InitialScanSkipStateStore initialScanSkipStateStore,
+        IStagingFileCopier? stagingFileCopier = null)
     {
         _logger = logger;
         _targetHealthRegistry = targetHealthRegistry;
@@ -38,32 +31,29 @@ internal sealed class FileTransferCoordinator : IDisposable
         _copiedCounter = copiedCounter;
         _deletedCounter = deletedCounter;
         var initialSettings = getSyncOptions();
-        _copyQueue = Channel.CreateBounded<CopyRequest>(new BoundedChannelOptions(Math.Max(1, initialSettings.Queue.CopyCapacity))
-        {
-            SingleReader = false,
-            SingleWriter = false,
-            FullMode = BoundedChannelFullMode.Wait,
-            AllowSynchronousContinuations = false
-        });
-        _deleteQueue = Channel.CreateBounded<DeleteRequest>(new BoundedChannelOptions(Math.Max(1, initialSettings.Queue.DeleteCapacity))
-        {
-            SingleReader = true,
-            SingleWriter = false,
-            FullMode = BoundedChannelFullMode.Wait,
-            AllowSynchronousContinuations = false
-        });
+        _stagingFileCopier = stagingFileCopier ?? new StagingFileCopier(logger);
+        FileHashProvider = ComputeFileHashAsync;
+        _scheduler = new LatestPathWorkScheduler(logger, initialSettings.MaxParallelTransfers, ProcessWorkItemAsync);
         _resolvedTargets = new ResolvedTargetPathCache(logger, resolvedTargetPathStateStore, initialSettings.RuntimeId, ownsStore: true);
     }
 
     public ConcurrentDictionary<string, FileTransferFingerprint> Fingerprints { get; } = new(PathKeyComparer.Comparer);
 
+    internal Func<PathWorkItem, string, Task> BeforeTrashMoveAsync { get; set; } = static (_, _) => Task.CompletedTask;
+    internal Func<PathWorkItem, string, Task> AfterTrashMoveAsync { get; set; } = static (_, _) => Task.CompletedTask;
+    internal Func<PathWorkItem, string, Task> BeforeDeleteStateForgetAsync { get; set; } = static (_, _) => Task.CompletedTask;
+    internal Func<PathWorkItem, string, Task> BeforeCommitAsync { get; set; } = static (_, _) => Task.CompletedTask;
+    internal Func<PathWorkItem, string, Task> BeforeSourceDeleteAsync { get; set; } = static (_, _) => Task.CompletedTask;
+    internal Func<PathWorkItem, Task> AfterDeleteProcessingAsync { get; set; } = static _ => Task.CompletedTask;
+    internal Func<string, SourcePresence> SourcePresenceProbe { get; set; } = ProbeSourcePresence;
+    internal Func<string, SyncOptions, CancellationToken, Task<string?>> FileHashProvider { get; set; }
+    internal Func<PathWorkItem, string, bool, Task> AfterExistingTargetComparisonAsync { get; set; } =
+        static (_, _, _) => Task.CompletedTask;
+    internal Func<string, SourceFileStamp> ReadyFileInfoProvider { get; set; } = ReadReadyFileInfo;
 
     public void UpdateSyncOptions(SyncOptions settings)
     {
         _resolvedTargets.UpdateRuntimeId(settings.RuntimeId);
-        _concurrencyGate.UpdateLimit(settings.MaxParallelTransfers);
-        EnsureCopyWorkerCount(settings.MaxParallelTransfers);
-        EnsureDeleteWorkerCount();
 
         if (!FileProcessingRules.IsEventEnabled(FileChangeKind.Deleted, settings))
         {
@@ -108,22 +98,12 @@ internal sealed class FileTransferCoordinator : IDisposable
             return;
         }
 
-        EnsureCopyWorkerCount(_getSyncOptions().MaxParallelTransfers);
-
-        if (!_inflightTracker.TryBegin(sourcePath))
+        if (!TryNormalizeSourcePath(sourcePath, out var normalized))
         {
-            _pendingCopyRequests[sourcePath] = 0;
-            _logger.LogDebug(LogText.Get("CopyDuplicatePending"), sourcePath);
             return;
         }
 
-        if (!_copyQueue.Writer.TryWrite(new CopyRequest(sourcePath, label, stopToken)))
-        {
-            _inflightTracker.Complete(sourcePath);
-            _logger.LogWarning(LogText.Get("CopyQueueFull"), sourcePath);
-            return;
-        }
-
+        _scheduler.SignalPresent(normalized, label, stopToken);
         _logger.LogDebug(LogText.Get("CopyQueued"), label, sourcePath);
     }
 
@@ -134,19 +114,27 @@ internal sealed class FileTransferCoordinator : IDisposable
             return;
         }
 
-        EnsureDeleteWorkerCount();
-
-        if (!_inflightTracker.TryBegin(sourcePath))
+        if (!TryNormalizeSourcePath(sourcePath, out var normalized))
         {
-            _pendingDeleteRequests[sourcePath] = 0;
-            _logger.LogDebug(LogText.Get("DeleteDuplicatePending"), sourcePath);
             return;
         }
 
-        if (!_deleteQueue.Writer.TryWrite(new DeleteRequest(sourcePath, stopToken)))
+        _scheduler.SignalAbsent(normalized, LogText.Get("DeleteSyncContext"), stopToken);
+    }
+
+    public void RequestCopy(string sourcePath, string label, CancellationToken stopToken)
+    {
+        if (TryNormalizeSourcePath(sourcePath, out var normalized))
         {
-            _inflightTracker.Complete(sourcePath);
-            _logger.LogWarning(LogText.Get("DeleteQueueFull"), sourcePath);
+            _scheduler.RequestCopy(normalized, label, stopToken);
+        }
+    }
+
+    public void ObserveSourceVersion(string sourcePath, SourceFileStamp stamp, string label, CancellationToken stopToken)
+    {
+        if (TryNormalizeSourcePath(sourcePath, out var normalized))
+        {
+            _scheduler.ObservePresent(normalized, stamp, label, stopToken);
         }
     }
 
@@ -157,102 +145,20 @@ internal sealed class FileTransferCoordinator : IDisposable
             return;
         }
 
-        _copyQueue.Writer.TryComplete();
-        _deleteQueue.Writer.TryComplete();
-        _disposeCts.Cancel();
-
-        try
-        {
-            Task.WaitAll(_copyWorkers.Concat(_deleteWorkers).ToArray(), TimeSpan.FromSeconds(5));
-        }
-        catch
-        {
-        }
-
-        _disposeCts.Dispose();
-        _concurrencyGate.Dispose();
+        _scheduler.Dispose();
         _resolvedTargets.Dispose();
         Fingerprints.Clear();
-        _pendingCopyRequests.Clear();
-        _pendingDeleteRequests.Clear();
     }
 
 
-    private void EnsureCopyWorkerCount(int maxParallel)
+    private Task ProcessWorkItemAsync(PathWorkItem item, CancellationToken ct) =>
+        item.DesiredState == DesiredSourceState.Present
+            ? ProcessCopyAsync(item, ct)
+            : ProcessDeleteAsync(item, ct);
+
+    private async Task ProcessCopyAsync(PathWorkItem item, CancellationToken ct)
     {
-        var desired = Math.Max(1, maxParallel);
-
-        lock (_workerSync)
-        {
-            if (Volatile.Read(ref _disposed) != 0)
-            {
-                return;
-            }
-
-            while (_copyWorkers.Count < desired)
-            {
-                var workerId = _copyWorkers.Count + 1;
-                _copyWorkers.Add(Task.Run(() => CopyWorkerLoopAsync(workerId)));
-            }
-        }
-    }
-
-    private void EnsureDeleteWorkerCount()
-    {
-        lock (_workerSync)
-        {
-            if (Volatile.Read(ref _disposed) != 0 || _deleteWorkers.Count > 0)
-            {
-                return;
-            }
-
-            _deleteWorkers.Add(Task.Run(() => DeleteWorkerLoopAsync()));
-        }
-    }
-
-    private async Task CopyWorkerLoopAsync(int workerId)
-    {
-        try
-        {
-            await foreach (var request in _copyQueue.Reader.ReadAllAsync(_disposeCts.Token).ConfigureAwait(false))
-            {
-                await ProcessCopyRequestAsync(request).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, LogText.Get("CopyWorkerStopped"), workerId);
-        }
-    }
-
-    private async Task DeleteWorkerLoopAsync()
-    {
-        try
-        {
-            await foreach (var request in _deleteQueue.Reader.ReadAllAsync(_disposeCts.Token).ConfigureAwait(false))
-            {
-                await ProcessDeleteRequestAsync(request).ConfigureAwait(false);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, LogText.Get("DeleteWorkerStopped"));
-        }
-    }
-
-    private async Task ProcessCopyRequestAsync(CopyRequest request)
-    {
-        IDisposable? lease = null;
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(request.StopToken, _disposeCts.Token);
-        var ct = linkedCts.Token;
-        var sourcePath = request.SourcePath;
-
+        var sourcePath = item.SourcePath;
         try
         {
             var settings = _getSyncOptions();
@@ -273,43 +179,50 @@ internal sealed class FileTransferCoordinator : IDisposable
                 return;
             }
 
-            lease = await _concurrencyGate.AcquireAsync(ct).ConfigureAwait(false);
-
             if (!await WaitForReadyFileAsync(sourcePath, settings, ct).ConfigureAwait(false))
             {
                 return;
             }
+
+            if (!_scheduler.IsCurrent(sourcePath, item.Generation, DesiredSourceState.Present))
+            {
+                return;
+            }
+
+            var sourceInfo = new FileInfo(sourcePath);
+            if (!sourceInfo.Exists)
+            {
+                return;
+            }
+
+            var sourceStamp = new SourceFileStamp(sourceInfo.Length, sourceInfo.LastWriteTimeUtc);
 
             if (await ShouldSkipCopyAsync(sourcePath, settings, mapper, ct).ConfigureAwait(false))
             {
                 return;
             }
 
-            await TransferToConfiguredTargetsAsync(sourcePath, settings, mapper, ct).ConfigureAwait(false);
+            await TransferToConfiguredTargetsAsync(item, sourceStamp, settings, mapper, ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
+            return;
         }
         catch (Exception ex)
         {
             FileOperationErrorHandler.Log(_logger, ex, LogText.Get("CopyOperation"), sourcePath);
         }
-        finally
-        {
-            lease?.Dispose();
-            _inflightTracker.Complete(sourcePath);
-            ReplayPendingRequestsIfNeeded(sourcePath, request.StopToken);
-        }
     }
 
-    private async Task ProcessDeleteRequestAsync(DeleteRequest request)
+    private async Task ProcessDeleteAsync(PathWorkItem item, CancellationToken ct)
     {
-        using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(request.StopToken, _disposeCts.Token);
-        var ct = linkedCts.Token;
-        var sourcePath = request.SourcePath;
-
+        var sourcePath = item.SourcePath;
         try
         {
+            if (!CanContinueAbsentWork(item, sourcePath))
+            {
+                return;
+            }
             var settings = _getSyncOptions();
             if (_initialScanSkipStateStore.IsSkipped(settings.RuntimeId, sourcePath))
             {
@@ -330,6 +243,11 @@ internal sealed class FileTransferCoordinator : IDisposable
 
             foreach (var targetRoot in settings.TargetRoots)
             {
+                if (!CanContinueAbsentWork(item, sourcePath))
+                {
+                    return;
+                }
+
                 var candidate = GetResolvedTargetPathForDelete(sourcePath, targetRoot, mapper);
                 if (string.IsNullOrEmpty(candidate) || !File.Exists(candidate))
                 {
@@ -338,13 +256,17 @@ internal sealed class FileTransferCoordinator : IDisposable
 
                 if (!settings.BackupDeletedTargetsToTrash)
                 {
-                    ForgetDeletedTargetState(sourcePath, candidate, settings);
+                    await BeforeDeleteStateForgetAsync(item, candidate).ConfigureAwait(false);
+                    if (CanContinueAbsentWork(item, sourcePath))
+                    {
+                        ForgetDeletedTargetState(sourcePath, candidate, settings);
+                    }
                     continue;
                 }
 
                 try
                 {
-                    await MoveToTrashWithRetryAsync(sourcePath, candidate, settings, mapper, ct).ConfigureAwait(false);
+                    await MoveToTrashWithRetryAsync(item, candidate, settings, mapper, ct).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -358,6 +280,7 @@ internal sealed class FileTransferCoordinator : IDisposable
         }
         catch (OperationCanceledException)
         {
+            return;
         }
         catch (Exception ex)
         {
@@ -365,8 +288,7 @@ internal sealed class FileTransferCoordinator : IDisposable
         }
         finally
         {
-            _inflightTracker.Complete(sourcePath);
-            ReplayPendingRequestsIfNeeded(sourcePath, request.StopToken);
+            await AfterDeleteProcessingAsync(item).ConfigureAwait(false);
         }
     }
 
@@ -382,30 +304,73 @@ internal sealed class FileTransferCoordinator : IDisposable
         return true;
     }
 
+    internal enum SourcePresence { Present, Missing, Unknown }
+
+    private static SourcePresence ProbeSourcePresence(string path)
+    {
+        try
+        {
+            _ = File.GetAttributes(path);
+            return SourcePresence.Present;
+        }
+        catch (FileNotFoundException) { return SourcePresence.Missing; }
+        catch (DirectoryNotFoundException) { return SourcePresence.Missing; }
+        catch (IOException) { return SourcePresence.Unknown; }
+        catch (UnauthorizedAccessException) { return SourcePresence.Unknown; }
+    }
+
+    private bool CanContinueAbsentWork(PathWorkItem item, string sourcePath)
+    {
+        if (!_scheduler.IsCurrent(sourcePath, item.Generation, DesiredSourceState.Absent))
+        {
+            return false;
+        }
+
+        var presence = SourcePresenceProbe(sourcePath);
+        if (presence == SourcePresence.Missing)
+        {
+            return true;
+        }
+
+        if (presence == SourcePresence.Present)
+        {
+            // A delete notification may run after a recreation.  Make the
+            // observed state explicit so the latest content is processed.
+            QueueCopy(sourcePath, "Recreated", CancellationToken.None);
+        }
+        else
+        {
+            _logger.LogDebug("Could not determine whether the source is absent: {SourcePath}", sourcePath);
+        }
+
+        return false;
+    }
+
     private void ForgetSourceState(string sourcePath)
     {
         Fingerprints.TryRemove(sourcePath, out _);
         _resolvedTargets.RemoveSource(sourcePath, _getSyncOptions().TargetRoots);
     }
 
-    private void ReplayPendingRequestsIfNeeded(string sourcePath, CancellationToken stopToken)
+    private bool TryNormalizeSourcePath(string path, out string normalized)
     {
-        if (stopToken.IsCancellationRequested)
+        normalized = string.Empty;
+        try
         {
-            _pendingCopyRequests.TryRemove(sourcePath, out _);
-            _pendingDeleteRequests.TryRemove(sourcePath, out _);
-            return;
-        }
+            normalized = Path.GetFullPath(path);
+            var sourceRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_getSyncOptions().SourceRoot));
+            if (PathKeyComparer.Equals(normalized, sourceRoot) || !PathKeyComparer.StartsWith(normalized, sourceRoot + Path.DirectorySeparatorChar))
+            {
+                _logger.LogDebug("Ignored source path outside the configured root: {Path}", path);
+                return false;
+            }
 
-        if (_pendingDeleteRequests.TryRemove(sourcePath, out _))
-        {
-            ScheduleMirrorDelete(sourcePath, stopToken);
-            return;
+            return true;
         }
-
-        if (_pendingCopyRequests.TryRemove(sourcePath, out _))
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {
-            QueueCopy(sourcePath, "Pending", stopToken);
+            _logger.LogWarning(ex, "Could not normalize source path: {Path}", path);
+            return false;
         }
     }
 
@@ -438,10 +403,13 @@ internal sealed class FileTransferCoordinator : IDisposable
                 continue;
             }
 
-            FileInfo info;
+            long currentLength;
+            DateTime currentLastWriteUtc;
             try
             {
-                info = new FileInfo(sourcePath);
+                var current = ReadyFileInfoProvider(sourcePath);
+                currentLength = current.Length;
+                currentLastWriteUtc = current.LastWriteUtc;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -450,14 +418,14 @@ internal sealed class FileTransferCoordinator : IDisposable
                 continue;
             }
 
-            if (previousLength == info.Length && previousLastWriteUtc == info.LastWriteTimeUtc)
+            if (previousLength == currentLength && previousLastWriteUtc == currentLastWriteUtc)
             {
                 stableCount++;
             }
             else
             {
-                previousLength = info.Length;
-                previousLastWriteUtc = info.LastWriteTimeUtc;
+                previousLength = currentLength;
+                previousLastWriteUtc = currentLastWriteUtc;
                 stableCount = 1;
             }
 
@@ -475,6 +443,12 @@ internal sealed class FileTransferCoordinator : IDisposable
         }
 
         return false;
+    }
+
+    private static SourceFileStamp ReadReadyFileInfo(string sourcePath)
+    {
+        var info = new FileInfo(sourcePath);
+        return new SourceFileStamp(info.Length, info.LastWriteTimeUtc);
     }
 
     private static bool CanOpenForRead(string sourcePath, SyncOptions settings)
@@ -512,7 +486,7 @@ internal sealed class FileTransferCoordinator : IDisposable
 
             if (settings.ComparisonMode == ComparisonMode.Hash && fingerprint.Hash is string existingHash)
             {
-                var currentHash = await ComputeFileHashAsync(sourcePath, settings, ct).ConfigureAwait(false);
+                var currentHash = await FileHashProvider(sourcePath, settings, ct).ConfigureAwait(false);
                 if (currentHash is not null && string.Equals(existingHash, currentHash, StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.LogDebug(LogText.Get("DuplicateHashSkipped"), settings.RuleId, sourcePath);
@@ -521,7 +495,9 @@ internal sealed class FileTransferCoordinator : IDisposable
             }
         }
 
-        if (!settings.OverwriteExisting && IsTargetSetSatisfied(sourcePath, settings, mapper, info, requireCurrentMetadata: true))
+        if (!settings.OverwriteExisting &&
+            settings.ComparisonMode == ComparisonMode.LengthAndTimestamp &&
+            IsTargetSetSatisfied(sourcePath, settings, mapper, info, requireCurrentMetadata: true))
         {
             _logger.LogDebug(LogText.Get("DestinationCurrentSkipped"), settings.RuleId, sourcePath);
             return true;
@@ -533,8 +509,9 @@ internal sealed class FileTransferCoordinator : IDisposable
     private bool IsTargetSetSatisfied(string sourcePath, SyncOptions settings, PathMapper mapper, FileInfo sourceInfo, bool requireCurrentMetadata)
     {
         var anyExists = false;
-        var hasHealthyTarget = false;
-        var missingHealthyTarget = false;
+        var hasAttemptableTarget = false;
+        var missingAttemptableTarget = false;
+        var now = DateTimeOffset.UtcNow;
 
         foreach (var targetRoot in settings.TargetRoots)
         {
@@ -543,14 +520,14 @@ internal sealed class FileTransferCoordinator : IDisposable
                 return true;
             }
 
-            var healthy = _targetHealthRegistry.IsHealthy(targetRoot);
-            hasHealthyTarget |= healthy;
+            var canAttempt = _targetHealthRegistry.CanAttempt(targetRoot, now);
+            hasAttemptableTarget |= canAttempt;
 
             if (!File.Exists(candidate))
             {
-                if (healthy)
+                if (canAttempt)
                 {
-                    missingHealthyTarget = true;
+                    missingAttemptableTarget = true;
                 }
 
                 continue;
@@ -568,19 +545,20 @@ internal sealed class FileTransferCoordinator : IDisposable
             {
                 anyExists = true;
             }
-            else if (healthy)
+            else if (canAttempt)
             {
-                missingHealthyTarget = true;
+                missingAttemptableTarget = true;
             }
         }
 
         return settings.TargetMode == TargetMode.FirstAvailable
             ? anyExists
-            : hasHealthyTarget && !missingHealthyTarget;
+            : hasAttemptableTarget && !missingAttemptableTarget;
     }
 
-    private async Task TransferToConfiguredTargetsAsync(string sourcePath, SyncOptions settings, PathMapper mapper, CancellationToken ct)
+    private async Task TransferToConfiguredTargetsAsync(PathWorkItem item, SourceFileStamp sourceStamp, SyncOptions settings, PathMapper mapper, CancellationToken ct)
     {
+        var sourcePath = item.SourcePath;
         var deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(1000, settings.OperationTimeoutMs));
         var delayMs = Math.Max(50, settings.InitialRetryDelayMs);
         var completedTargets = new HashSet<string>(PathKeyComparer.Comparer);
@@ -591,9 +569,9 @@ internal sealed class FileTransferCoordinator : IDisposable
 
             try
             {
-                if (!File.Exists(sourcePath))
+                if (!SourceStillMatches(sourcePath, sourceStamp))
                 {
-                    _logger.LogWarning(LogText.Get("SourceDisappearedBeforeCopy"), settings.RuleId, sourcePath);
+                    _scheduler.MarkSourceChangedDetected(sourcePath, item.Generation, null, "SourceChanged");
                     return;
                 }
 
@@ -601,13 +579,9 @@ internal sealed class FileTransferCoordinator : IDisposable
                 var targetRoots = SelectCandidateTargetRoots(settings, completedTargets).ToArray();
                 if (targetRoots.Length == 0)
                 {
-                    if (completedTargets.Count > 0)
-                    {
-                        await DeleteSourceAfterSuccessfulTransferAsync(sourcePath, settings, ct).ConfigureAwait(false);
-                        return;
-                    }
-
                     _logger.LogError(LogText.Get("AllTargetsUnhealthy"), settings.RuleId);
+                    await DelayUntilTargetCanBeAttemptedAsync(settings, ct).ConfigureAwait(false);
+                    continue;
                 }
 
                 foreach (var targetRoot in targetRoots)
@@ -620,11 +594,23 @@ internal sealed class FileTransferCoordinator : IDisposable
 
                     if (!settings.OverwriteExisting && File.Exists(destPath))
                     {
+                        var existingMatch = await ExistingTargetMatchesAsync(sourceInfo, destPath, settings, ct).ConfigureAwait(false);
+                        await AfterExistingTargetComparisonAsync(item, targetRoot, existingMatch.Matches).ConfigureAwait(false);
                         _logger.LogInformation(LogText.Get("KeepExisting"), settings.RuleId, destPath);
-                        completedTargets.Add(targetRoot);
+                        if (existingMatch.Matches)
+                        {
+                            completedTargets.Add(targetRoot);
+                            _scheduler.RecordCommittedStamp(sourcePath, item.Generation, sourceStamp);
+                        }
                         if (ShouldFinishAfterTarget(settings, completedTargets))
                         {
-                            await DeleteSourceAfterSuccessfulTransferAsync(sourcePath, settings, ct).ConfigureAwait(false);
+                            await DeleteSourceAfterSuccessfulTransferAsync(
+                                item,
+                                settings,
+                                new SourceFileStamp(sourceInfo.Length, sourceInfo.LastWriteTimeUtc),
+                                existingMatch.ContentHash,
+                                completedTargets,
+                                ct).ConfigureAwait(false);
                             return;
                         }
 
@@ -639,11 +625,28 @@ internal sealed class FileTransferCoordinator : IDisposable
                             Directory.CreateDirectory(destDir);
                         }
 
-                        var fingerprint = await CopyFileAsync(sourceInfo, destPath, settings, ct).ConfigureAwait(false);
-                        File.SetLastWriteTimeUtc(destPath, sourceInfo.LastWriteTimeUtc);
-                        await VerifyCopiedFileAsync(sourceInfo, destPath, fingerprint.Hash, settings, ct).ConfigureAwait(false);
+                        var stagingPath = PathHelper.BuildStagingPath(destPath);
+                        var staged = await _stagingFileCopier.CopyAsync(sourcePath, sourceStamp, stagingPath, settings, ct).ConfigureAwait(false);
+                        if (!SourceStillMatches(sourcePath, staged.SourceStamp) ||
+                            (settings.ComparisonMode == ComparisonMode.Hash && !HashesMatch(staged.ContentHash, await FileHashProvider(sourcePath, settings, ct).ConfigureAwait(false))))
+                        {
+                            _scheduler.MarkSourceChangedDetected(sourcePath, item.Generation, null, "SourceChanged");
+                            TryDeleteStagingFile(stagingPath);
+                            return;
+                        }
 
-                        _targetHealthRegistry.Update(targetRoot, true, LogText.Get("CopySucceededHealthReason"));
+                        await BeforeCommitAsync(item, stagingPath).ConfigureAwait(false);
+                        if (!_scheduler.IsCurrent(sourcePath, item.Generation, DesiredSourceState.Present))
+                        {
+                            TryDeleteStagingFile(stagingPath);
+                            return;
+                        }
+
+                        File.Move(stagingPath, destPath, overwrite: true);
+                        var fingerprint = new FileTransferFingerprint(staged.SourceStamp.Length, staged.SourceStamp.LastWriteUtc, staged.ContentHash);
+                        _scheduler.RecordCommittedStamp(sourcePath, item.Generation, staged.SourceStamp);
+
+                        _targetHealthRegistry.RecordSuccess(targetRoot, LogText.Get("CopySucceededHealthReason"));
                         _copiedCounter.Add(1);
 
                         if (FileProcessingRules.IsEventEnabled(FileChangeKind.Deleted, settings))
@@ -656,7 +659,7 @@ internal sealed class FileTransferCoordinator : IDisposable
 
                         if (ShouldFinishAfterTarget(settings, completedTargets))
                         {
-                            await DeleteSourceAfterSuccessfulTransferAsync(sourcePath, settings, ct).ConfigureAwait(false);
+                            await DeleteSourceAfterSuccessfulTransferAsync(item, settings, staged.SourceStamp, staged.ContentHash, completedTargets, ct).ConfigureAwait(false);
                             return;
                         }
                     }
@@ -668,21 +671,41 @@ internal sealed class FileTransferCoordinator : IDisposable
                     catch (DirectoryNotFoundException)
                     {
                         _logger.LogWarning(LogText.Get("TargetDirectoryMissing"), settings.RuleId, targetRoot);
-                        _targetHealthRegistry.Update(targetRoot, false, LogText.Get("DirectoryNotFoundReason"));
+                        _targetHealthRegistry.RecordFailure(
+                            targetRoot,
+                            DateTimeOffset.UtcNow,
+                            settings.InitialRetryDelayMs,
+                            settings.MaxRetryDelayMs,
+                            LogText.Get("DirectoryNotFoundReason"));
                     }
                     catch (OperationCanceledException)
                     {
                         throw;
                     }
+                    catch (SourceChangedException)
+                    {
+                        _scheduler.MarkSourceChangedDetected(sourcePath, item.Generation, null, "SourceChanged");
+                        return;
+                    }
                     catch (IOException ex) when (!ct.IsCancellationRequested)
                     {
                         _logger.LogDebug(ex, LogText.Get("TargetWriteIoTransient"), settings.RuleId, destPath);
-                        _targetHealthRegistry.Update(targetRoot, false, LogText.Get("WriteIoErrorReason"));
+                        _targetHealthRegistry.RecordFailure(
+                            targetRoot,
+                            DateTimeOffset.UtcNow,
+                            settings.InitialRetryDelayMs,
+                            settings.MaxRetryDelayMs,
+                            LogText.Get("WriteIoErrorReason"));
                     }
                     catch (UnauthorizedAccessException ex) when (!ct.IsCancellationRequested)
                     {
                         _logger.LogDebug(ex, LogText.Get("TargetWriteAccessDenied"), settings.RuleId, destPath);
-                        _targetHealthRegistry.Update(targetRoot, false, LogText.Get("WriteAccessDeniedReason"));
+                        _targetHealthRegistry.RecordFailure(
+                            targetRoot,
+                            DateTimeOffset.UtcNow,
+                            settings.InitialRetryDelayMs,
+                            settings.MaxRetryDelayMs,
+                            LogText.Get("WriteAccessDeniedReason"));
                     }
                 }
             }
@@ -706,6 +729,19 @@ internal sealed class FileTransferCoordinator : IDisposable
         }
     }
 
+    private static bool SourceStillMatches(string path, SourceFileStamp stamp)
+    {
+        try
+        {
+            var info = new FileInfo(path);
+            return info.Exists && info.Length == stamp.Length && info.LastWriteTimeUtc == stamp.LastWriteUtc;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
     private IEnumerable<string> SelectCandidateTargetRoots(SyncOptions settings, HashSet<string> completedTargets)
     {
         foreach (var targetRoot in settings.TargetRoots)
@@ -715,18 +751,13 @@ internal sealed class FileTransferCoordinator : IDisposable
                 continue;
             }
 
-            if (!_targetHealthRegistry.IsHealthy(targetRoot))
+            if (!_targetHealthRegistry.CanAttempt(targetRoot, DateTimeOffset.UtcNow))
             {
                 _logger.LogDebug(LogText.Get("SkipUnhealthyTarget"), settings.RuleId, targetRoot);
                 continue;
             }
 
             yield return targetRoot;
-
-            if (settings.TargetMode == TargetMode.FirstAvailable)
-            {
-                yield break;
-            }
         }
     }
 
@@ -737,30 +768,88 @@ internal sealed class FileTransferCoordinator : IDisposable
             return completedTargets.Count > 0;
         }
 
-        return settings.TargetRoots
-            .Where(_targetHealthRegistry.IsHealthy)
-            .All(completedTargets.Contains);
+        return settings.TargetRoots.All(completedTargets.Contains);
     }
 
-    private async Task DeleteSourceAfterSuccessfulTransferAsync(string sourcePath, SyncOptions settings, CancellationToken ct)
+    private async Task DelayUntilTargetCanBeAttemptedAsync(SyncOptions settings, CancellationToken ct)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var nextAttempt = _targetHealthRegistry.GetNextAttemptUtc(settings.TargetRoots, now);
+        var delay = nextAttempt is null
+            ? Math.Max(50, settings.MaxRetryDelayMs)
+            : Math.Max(50, Math.Min(
+                settings.MaxRetryDelayMs,
+                (int)Math.Ceiling((nextAttempt.Value - now).TotalMilliseconds)));
+
+        await Task.Delay(TimeSpan.FromMilliseconds(delay), ct).ConfigureAwait(false);
+    }
+
+    private async Task<ExistingTargetMatchResult> ExistingTargetMatchesAsync(
+        FileInfo sourceInfo,
+        string destPath,
+        SyncOptions settings,
+        CancellationToken ct)
+    {
+        var destination = new FileInfo(destPath);
+        if (!destination.Exists || destination.Length != sourceInfo.Length)
+        {
+            return default;
+        }
+
+        if (settings.ComparisonMode == ComparisonMode.LengthAndTimestamp)
+        {
+            return new ExistingTargetMatchResult(
+                destination.LastWriteTimeUtc >= sourceInfo.LastWriteTimeUtc,
+                null);
+        }
+
+        var sourceHash = await FileHashProvider(sourceInfo.FullName, settings, ct).ConfigureAwait(false);
+        var destinationHash = await FileHashProvider(destPath, settings, ct).ConfigureAwait(false);
+        return new ExistingTargetMatchResult(
+            HashesMatch(sourceHash, destinationHash),
+            sourceHash);
+    }
+
+    private readonly record struct ExistingTargetMatchResult(bool Matches, string? ContentHash);
+
+    private async Task DeleteSourceAfterSuccessfulTransferAsync(
+        PathWorkItem item,
+        SyncOptions settings,
+        SourceFileStamp copiedStamp,
+        string? copiedHash,
+        HashSet<string> completedTargets,
+        CancellationToken ct)
     {
         if (!settings.DeleteSourceAfterCopy)
         {
             return;
         }
 
+        var enoughTargets = settings.TargetMode == TargetMode.FirstAvailable
+            ? completedTargets.Count > 0
+            : settings.TargetRoots.All(completedTargets.Contains);
+        if (!enoughTargets)
+        {
+            return;
+        }
+
         try
         {
-            await DeleteSourceAfterCopyWithRetryAsync(sourcePath, settings, ct).ConfigureAwait(false);
+            await DeleteSourceAfterCopyWithRetryAsync(item, settings, copiedStamp, copiedHash, ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, LogText.Get("SourceDeleteFailed"), settings.RuleId, sourcePath);
+            _logger.LogError(ex, LogText.Get("SourceDeleteFailed"), settings.RuleId, item.SourcePath);
         }
     }
 
-    private async Task DeleteSourceAfterCopyWithRetryAsync(string sourcePath, SyncOptions settings, CancellationToken ct)
+    private async Task DeleteSourceAfterCopyWithRetryAsync(PathWorkItem item, SyncOptions settings, SourceFileStamp copiedStamp, string? copiedHash, CancellationToken ct)
     {
+        var sourcePath = item.SourcePath;
         var deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(1000, settings.OperationTimeoutMs));
         var delayMs = Math.Max(50, settings.InitialRetryDelayMs);
 
@@ -770,9 +859,22 @@ internal sealed class FileTransferCoordinator : IDisposable
 
             try
             {
-                if (!File.Exists(sourcePath))
+                if (!_scheduler.IsCurrent(sourcePath, item.Generation, DesiredSourceState.Present) || !SourceStillMatches(sourcePath, copiedStamp))
                 {
-                    _logger.LogDebug(LogText.Get("SourceAlreadyMissing"), sourcePath);
+                    _scheduler.MarkSourceChangedDetected(sourcePath, item.Generation, null, "SourceChanged");
+                    return;
+                }
+
+                if (settings.ComparisonMode == ComparisonMode.Hash && !HashesMatch(copiedHash, await FileHashProvider(sourcePath, settings, ct).ConfigureAwait(false)))
+                {
+                    _scheduler.MarkSourceChangedDetected(sourcePath, item.Generation, null, "SourceChanged");
+                    return;
+                }
+
+                await BeforeSourceDeleteAsync(item, sourcePath).ConfigureAwait(false);
+                if (!_scheduler.IsCurrent(sourcePath, item.Generation, DesiredSourceState.Present) || !SourceStillMatches(sourcePath, copiedStamp))
+                {
+                    _scheduler.MarkSourceChangedDetected(sourcePath, item.Generation, null, "SourceChanged");
                     return;
                 }
 
@@ -811,76 +913,6 @@ internal sealed class FileTransferCoordinator : IDisposable
         if (!ct.IsCancellationRequested)
         {
             _logger.LogWarning(LogText.Get("SourceDeleteTimeout"), sourcePath);
-        }
-    }
-
-    private async Task<FileTransferFingerprint> CopyFileAsync(FileInfo sourceInfo, string destPath, SyncOptions settings, CancellationToken ct)
-    {
-        var tempPath = PathHelper.BuildStagingPath(destPath);
-        var tempDir = Path.GetDirectoryName(tempPath);
-        if (!string.IsNullOrWhiteSpace(tempDir))
-        {
-            Directory.CreateDirectory(tempDir);
-        }
-
-        try
-        {
-            string? hashValue;
-
-            await using (var source = OpenSourceStream(sourceInfo.FullName, settings))
-            await using (var destination = new FileStream(
-                tempPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.Read,
-                settings.CopyBufferSize,
-                FileOptions.Asynchronous | FileOptions.SequentialScan))
-            {
-                IncrementalHash? hasher = null;
-                if (settings.ComparisonMode == ComparisonMode.Hash)
-                {
-                    hasher = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-                }
-
-                var buffer = ArrayPool<byte>.Shared.Rent(settings.CopyBufferSize);
-                hashValue = null;
-
-                try
-                {
-                    while (true)
-                    {
-                        var read = await source.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false);
-                        if (read == 0)
-                        {
-                            break;
-                        }
-
-                        hasher?.AppendData(buffer, 0, read);
-                        await destination.WriteAsync(buffer, 0, read, ct).ConfigureAwait(false);
-                    }
-
-                    await destination.FlushAsync(ct).ConfigureAwait(false);
-
-                    if (hasher is not null)
-                    {
-                        hashValue = Convert.ToHexString(hasher.GetHashAndReset());
-                    }
-                }
-                finally
-                {
-                    ArrayPool<byte>.Shared.Return(buffer);
-                    hasher?.Dispose();
-                }
-            }
-
-            File.SetLastWriteTimeUtc(tempPath, sourceInfo.LastWriteTimeUtc);
-            File.Move(tempPath, destPath, overwrite: true);
-            return new FileTransferFingerprint(sourceInfo.Length, sourceInfo.LastWriteTimeUtc, hashValue);
-        }
-        catch
-        {
-            TryDeleteStagingFile(tempPath);
-            throw;
         }
     }
 
@@ -942,32 +974,14 @@ internal sealed class FileTransferCoordinator : IDisposable
         }
     }
 
-    private async Task VerifyCopiedFileAsync(FileInfo sourceInfo, string destPath, string? sourceHash, SyncOptions settings, CancellationToken ct)
+    internal static bool HashesMatch(string? left, string? right) =>
+        left is not null &&
+        right is not null &&
+        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+
+    private async Task MoveToTrashWithRetryAsync(PathWorkItem item, string destPath, SyncOptions settings, PathMapper mapper, CancellationToken ct)
     {
-        var destInfo = new FileInfo(destPath);
-        if (!destInfo.Exists)
-        {
-            throw new IOException($"Destination file was not created: {destPath}");
-        }
-
-        var toleratedSourceWriteUtc = sourceInfo.LastWriteTimeUtc.AddSeconds(-2);
-        if (destInfo.Length != sourceInfo.Length || destInfo.LastWriteTimeUtc < toleratedSourceWriteUtc)
-        {
-            throw new IOException($"Destination metadata verification failed: {destPath}");
-        }
-
-        if (settings.ComparisonMode == ComparisonMode.Hash && !string.IsNullOrEmpty(sourceHash))
-        {
-            var destHash = await ComputeFileHashAsync(destPath, settings, ct).ConfigureAwait(false);
-            if (!string.Equals(sourceHash, destHash, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new IOException($"Destination hash verification failed: {destPath}");
-            }
-        }
-    }
-
-    private async Task MoveToTrashWithRetryAsync(string sourcePath, string destPath, SyncOptions settings, PathMapper mapper, CancellationToken ct)
-    {
+        var sourcePath = item.SourcePath;
         var deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(1000, settings.OperationTimeoutMs));
         var delayMs = Math.Max(50, settings.InitialRetryDelayMs);
 
@@ -977,10 +991,18 @@ internal sealed class FileTransferCoordinator : IDisposable
 
             try
             {
+                if (!CanContinueAbsentWork(item, sourcePath))
+                {
+                    return;
+                }
+
                 if (!File.Exists(destPath))
                 {
                     _logger.LogDebug(LogText.Get("DestinationAlreadyDeleted"), destPath);
-                    ForgetDeletedTargetState(sourcePath, destPath, settings);
+                    if (CanContinueAbsentWork(item, sourcePath))
+                    {
+                        ForgetDeletedTargetState(sourcePath, destPath, settings);
+                    }
                     return;
                 }
 
@@ -993,7 +1015,21 @@ internal sealed class FileTransferCoordinator : IDisposable
                 }
 
                 var finalTrashPath = PathHelper.GetUniqueFilePath(trashPath);
+
+                await BeforeTrashMoveAsync(item, destPath).ConfigureAwait(false);
+                if (!CanContinueAbsentWork(item, sourcePath))
+                {
+                    return;
+                }
+
                 File.Move(destPath, finalTrashPath);
+
+                await AfterTrashMoveAsync(item, finalTrashPath).ConfigureAwait(false);
+                if (!CanContinueAbsentWork(item, sourcePath))
+                {
+                    RestoreTrashIfSafe(finalTrashPath, destPath);
+                    return;
+                }
 
                 _deletedCounter.Add(1);
                 ForgetDeletedTargetState(sourcePath, destPath, settings);
@@ -1003,12 +1039,18 @@ internal sealed class FileTransferCoordinator : IDisposable
             }
             catch (FileNotFoundException)
             {
-                ForgetDeletedTargetState(sourcePath, destPath, settings);
+                if (CanContinueAbsentWork(item, sourcePath))
+                {
+                    ForgetDeletedTargetState(sourcePath, destPath, settings);
+                }
                 return;
             }
             catch (DirectoryNotFoundException)
             {
-                ForgetDeletedTargetState(sourcePath, destPath, settings);
+                if (CanContinueAbsentWork(item, sourcePath))
+                {
+                    ForgetDeletedTargetState(sourcePath, destPath, settings);
+                }
                 return;
             }
             catch (OperationCanceledException)
@@ -1034,6 +1076,23 @@ internal sealed class FileTransferCoordinator : IDisposable
         }
     }
 
+    private void RestoreTrashIfSafe(string trashPath, string destinationPath)
+    {
+        try
+        {
+            if (!File.Exists(trashPath) || File.Exists(destinationPath))
+            {
+                return;
+            }
+
+            File.Move(trashPath, destinationPath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _logger.LogWarning(ex, "Could not restore target after a superseded delete: {TrashPath}", trashPath);
+        }
+    }
+
     private void RemoveResolvedTargetPath(string sourcePath, string? targetRoot) => _resolvedTargets.Remove(sourcePath, targetRoot);
 
     private void RemoveResolvedTargetRoots(string sourcePath) => _resolvedTargets.RemoveSource(sourcePath, _getSyncOptions().TargetRoots);
@@ -1044,7 +1103,7 @@ internal sealed class FileTransferCoordinator : IDisposable
         RemoveResolvedTargetPath(sourcePath, PathHelper.GetContainingRoot(destPath, settings.TargetRoots));
     }
 
-    private static void EnsureTrashAttributes(string trashDir)
+    private void EnsureTrashAttributes(string trashDir)
     {
 #if WINDOWS
         try
@@ -1055,8 +1114,9 @@ internal sealed class FileTransferCoordinator : IDisposable
                 info.Attributes |= FileAttributes.Hidden;
             }
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            _logger.LogDebug(ex, "Could not mark trash directory as hidden: {TrashDirectory}", trashDir);
         }
 #else
         _ = trashDir;
@@ -1085,7 +1145,7 @@ internal sealed class FileTransferCoordinator : IDisposable
         return targetPath;
     }
 
-    private static void TryDeleteStagingFile(string path)
+    private void TryDeleteStagingFile(string path)
     {
         try
         {
@@ -1094,12 +1154,10 @@ internal sealed class FileTransferCoordinator : IDisposable
                 File.Delete(path);
             }
         }
-        catch
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
+            _logger.LogWarning(ex, "Could not delete staging file: {StagingPath}", path);
         }
     }
 
-    private readonly record struct CopyRequest(string SourcePath, string Label, CancellationToken StopToken);
-
-    private readonly record struct DeleteRequest(string SourcePath, CancellationToken StopToken);
 }

@@ -208,51 +208,20 @@ public class InfrastructureTests
     }
 
     [Fact]
-    public async Task TransferConcurrencyGate_UpdateLimit_AllowsAdditionalConcurrentAcquire()
-    {
-        using var gate = new TransferConcurrencyGate(1);
-        using var first = await gate.AcquireAsync(TestContext.Current.CancellationToken);
-        gate.UpdateLimit(2);
-
-        using var second = await gate.AcquireAsync(TestContext.Current.CancellationToken);
-
-        Assert.NotNull(second);
-    }
-
-    [Fact]
-    public async Task TransferConcurrencyGate_CanceledAcquire_DoesNotBreakSubsequentAcquire()
-    {
-        using var gate = new TransferConcurrencyGate(1);
-        using var first = await gate.AcquireAsync(TestContext.Current.CancellationToken);
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => gate.AcquireAsync(cts.Token));
-        first.Dispose();
-
-        using var second = await gate.AcquireAsync(TestContext.Current.CancellationToken);
-        Assert.NotNull(second);
-    }
-
-    [Fact]
-    public void TargetHealthRegistry_TracksStateAndPreferredTarget()
+    public void TargetHealthRegistry_LogsFailureAndRecoveryFromRealOperations()
     {
         using var culture = TestCultureScope.Use("ja");
         var logger = new ListLogger();
         var registry = new TargetHealthRegistry(logger);
-        var changes = new List<(string Target, bool Healthy)>();
-        registry.StateChanged += (target, healthy) => changes.Add((target, healthy));
-
+        var now = DateTimeOffset.UtcNow;
         registry.Initialize(new[] { @"D:\A", "", @"E:\B" });
-        registry.Update(@"D:\A", false, "disk offline");
-        registry.Update(@"D:\A", true, "recovered");
+        registry.RecordFailure(@"D:\A", now, 100, 1_000, "disk offline");
+        registry.RecordSuccess(@"D:\A", "recovered");
 
-        Assert.Equal(4, changes.Count);
-        Assert.True(registry.IsHealthy(@"E:\B"));
-        Assert.True(registry.AnyHealthyTarget(new[] { @"D:\A", @"E:\B" }));
-        Assert.Equal(@"D:\A", registry.GetPreferredTarget(new[] { @"D:\A", @"E:\B" }));
+        Assert.True(registry.CanAttempt(@"D:\A", now));
+        Assert.Null(registry.GetNextAttemptUtc(new[] { @"D:\A", @"E:\B" }, now));
         Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning && entry.Message.Contains("状態が変化しました"));
-        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Warning && entry.Message.Contains("状態が回復しました"));
+        Assert.Contains(logger.Entries, entry => entry.Level == LogLevel.Information && entry.Message.Contains("状態が回復しました"));
     }
 
     [Fact]
@@ -387,18 +356,16 @@ public partial class AdditionalInfrastructureTests
     }
 
     [Fact]
-    public void TargetHealthRegistry_SyncTargets_PreservesExistingUnhealthyState()
+    public void TargetHealthRegistry_GetNextAttemptUtc_ReturnsEarliestBackoff()
     {
         var logger = new ListLogger();
         var registry = new TargetHealthRegistry(logger);
+        var now = DateTimeOffset.UtcNow;
         registry.Initialize(new[] { "primary", "secondary" });
-        registry.Update("primary", false, "offline");
+        registry.RecordFailure("primary", now, 200, 1_000, "offline");
+        registry.RecordFailure("secondary", now, 100, 1_000, "offline");
 
-        registry.SyncTargets(new[] { "primary", "tertiary" });
-
-        Assert.False(registry.IsHealthy("primary"));
-        Assert.True(registry.IsHealthy("tertiary"));
-        Assert.True(registry.IsHealthy("secondary"));
+        Assert.Equal(now.AddMilliseconds(100), registry.GetNextAttemptUtc(new[] { "primary", "secondary" }, now));
     }
     [Fact]
     public void AppPathsOptions_FromConfiguration_UsesConfiguredDirectories()

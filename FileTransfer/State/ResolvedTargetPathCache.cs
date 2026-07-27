@@ -49,7 +49,25 @@ internal sealed class ResolvedTargetPathCache : IDisposable
                     continue;
                 }
 
-                _entries[BuildKey(entry.SourceRoot, entry.TargetRoot)] = Entry.Create(entry.Path, entry.SourceCreationUtc);
+                try
+                {
+                    var normalizedSourcePath = Path.GetFullPath(entry.SourceRoot);
+                    var normalizedTargetRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(entry.TargetRoot));
+                    var normalizedTargetPath = Path.GetFullPath(entry.Path);
+                    if (!PathHelper.IsStrictChildPath(normalizedTargetRoot, normalizedTargetPath))
+                    {
+                        _store.Remove(_runtimeId, entry.SourceRoot, entry.TargetRoot);
+                        _logger.LogWarning("Ignored resolved target cache entry outside its target root: {Path}", entry.Path);
+                        continue;
+                    }
+
+                    _entries[BuildKey(normalizedSourcePath, normalizedTargetRoot)] = Entry.Create(normalizedTargetPath, entry.SourceCreationUtc);
+                }
+                catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or UnauthorizedAccessException)
+                {
+                    _store.Remove(_runtimeId, entry.SourceRoot, entry.TargetRoot);
+                    _logger.LogWarning(ex, "Ignored invalid resolved target cache entry: {Path}", entry.Path);
+                }
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -77,8 +95,12 @@ internal sealed class ResolvedTargetPathCache : IDisposable
         var key = BuildKey(sourcePath, targetRoot);
         var hasCurrentCreationUtc = TryGetSourceCreationUtc(sourcePath, out var currentCreationUtc);
 
-        if (_entries.TryGetValue(key, out var existing) &&
-            (!hasCurrentCreationUtc || existing.SourceCreationUtc == currentCreationUtc))
+        if (_entries.TryGetValue(key, out var existing) && !PathHelper.IsStrictChildPath(targetRoot, existing.Path))
+        {
+            Remove(sourcePath, targetRoot);
+        }
+        else if (_entries.TryGetValue(key, out existing) &&
+                 (!hasCurrentCreationUtc || existing.SourceCreationUtc == currentCreationUtc))
         {
             targetPath = existing.Path;
             _entries[key] = existing.Touch();
@@ -95,6 +117,11 @@ internal sealed class ResolvedTargetPathCache : IDisposable
         }
 
         var updated = Entry.Create(resolution.TargetPath, hasCurrentCreationUtc ? currentCreationUtc : DateTime.MinValue);
+        if (!PathHelper.IsStrictChildPath(targetRoot, updated.Path))
+        {
+            Remove(sourcePath, targetRoot);
+            return false;
+        }
         _entries[key] = updated;
         PersistIfNeeded(mapper, sourcePath, targetRoot, updated);
         TrimIfNeeded();
@@ -144,8 +171,13 @@ internal sealed class ResolvedTargetPathCache : IDisposable
         var key = BuildKey(sourcePath, targetRoot);
         if (_entries.TryGetValue(key, out var existing))
         {
-            _entries[key] = existing.Touch();
-            return existing.Path;
+            if (PathHelper.IsStrictChildPath(targetRoot, existing.Path))
+            {
+                _entries[key] = existing.Touch();
+                return existing.Path;
+            }
+
+            Remove(sourcePath, targetRoot);
         }
 
         if (TryReuseRelativePathFromExistingTarget(sourcePath, targetRoot, currentCreationUtc: null, out var reusedTargetPath))
@@ -160,7 +192,7 @@ internal sealed class ResolvedTargetPathCache : IDisposable
             return string.Empty;
         }
 
-        return resolution.TargetPath;
+        return PathHelper.IsStrictChildPath(targetRoot, resolution.TargetPath) ? resolution.TargetPath : string.Empty;
     }
 
     public void Remove(string sourcePath, string? targetRoot)

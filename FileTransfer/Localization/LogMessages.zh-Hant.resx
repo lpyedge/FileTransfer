@@ -38,9 +38,6 @@
   <data name="EventIgnoredByMapping" xml:space="preserve"><value>Rule {RuleId}: Event skipped by Ignore=true mapping: {Path}</value></data>
   <data name="ExtensionSkipped" xml:space="preserve"><value>因副檔名篩選而略過：{Path}</value></data>
   <data name="HashFailed" xml:space="preserve"><value>Hash calculation failed: {Path}</value></data>
-  <data name="HealthCheckFailed" xml:space="preserve"><value>目標健康檢查失敗。</value></data>
-  <data name="HealthUnexpectedError" xml:space="preserve"><value>目標健康檢查發生未預期錯誤：{Target}</value></data>
-  <data name="HealthWriteProbeFailed" xml:space="preserve"><value>目標健康寫入探測失敗：{Target}</value></data>
   <data name="InventoryEnumerationError" xml:space="preserve"><value>inventory 列舉時發生錯誤：{Path}</value></data>
   <data name="InventoryFailed" xml:space="preserve"><value>啟動時 inventory 收集失敗。</value></data>
   <data name="InventoryMissing" xml:space="preserve"><value>{Label} 不存在（{Path}）。</value></data>
@@ -144,8 +141,6 @@
   <data name="FileChangeDeleted" xml:space="preserve"><value>刪除</value></data>
   <data name="FileChangeRenamed" xml:space="preserve"><value>重新命名</value></data>
   <data name="FileChangeUnknown" xml:space="preserve"><value>未知</value></data>
-  <data name="HealthCheckFailedReason" xml:space="preserve"><value>健康檢查偵測到故障。</value></data>
-  <data name="HealthCheckSucceededReason" xml:space="preserve"><value>健康檢查成功。</value></data>
   <data name="HealthStateHealthy" xml:space="preserve"><value>正常</value></data>
   <data name="HealthStateUnhealthy" xml:space="preserve"><value>異常</value></data>
   <data name="InventorySummary" xml:space="preserve"><value>{Label}: 路徑={Path} / 子目錄={Dirs} / 檔案={Files} / 總大小={Size}</value></data>

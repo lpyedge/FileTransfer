@@ -25,13 +25,13 @@ rules:
     enabled: true
 
     # One rule can watch multiple source roots.
-    # Each source root becomes an independent runtime with its own watcher, queues, reconciliation, and runtime cache namespace.
+    # Each source root becomes an independent runtime with its own watcher, Latest-Wins scheduler, reconciliation, and runtime cache namespace.
     sourceRoots:
       - C:\Inbox
 
     # Supported values:
-    #   FirstAvailable   - copy to the first healthy target only
-    #   AllHealthyTargets - copy to every healthy target; reconciliation fills recovered targets later
+    #   FirstAvailable   - succeed after one target copy commits
+    #   AllHealthyTargets - copy to every configured target; reconciliation fills delayed targets later
     # Removed intentionally: PrimaryAndBackup.
     targetRoots:
       - \\NAS01\Scanner
@@ -77,12 +77,6 @@ rules:
       requireReadable: true
       doneFileSuffix: .done
 
-    # Bounded in-memory queues prevent file storms from consuming unlimited memory.
-    # If a queue is full, later watcher events and reconciliation act as the retry safety net.
-    queue:
-      copyCapacity: 10000
-      deleteCapacity: 5000
-
     # Runtime resource controls.
     # copyBufferSize and hashBufferSize are intentionally separate from watcherInternalBufferSize.
     maxParallelTransfers: 4
@@ -97,13 +91,10 @@ rules:
 
     # Reconciliation scans source files and fixes missed events, missing targets, and stale targets.
     # For FirstAvailable, any current target is enough.
-    # For AllHealthyTargets, every healthy target must have a current file.
+    # For AllHealthyTargets, every configured target must have a current file.
     reconciliationIntervalMs: 60000
     maxReconciliationFilesPerRun: 10000
     maxReconciliationDurationMs: 30000
-
-    # Target health checks use transient probe files written directly under each target root.
-    healthCheckIntervalMs: 10000
 
     # FileSystemWatcher events.
     # Renamed events are treated as enabled when either Created or Changed is enabled.
