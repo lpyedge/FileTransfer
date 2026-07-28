@@ -8,6 +8,7 @@
 *.user
 dist/
 TestResults/
+temp/
 
 # Local/private deployment configuration. Public examples stay tracked.
 FileTransfer/appsettings.*.local.yaml
