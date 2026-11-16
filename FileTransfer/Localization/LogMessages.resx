@@ -149,7 +149,8 @@ Options:
   <data name="HealthStateUnhealthy" xml:space="preserve"><value>unhealthy</value></data>
   <data name="InventorySummary" xml:space="preserve"><value>{Label}: path={Path} / subdirectories={Dirs} / files={Files} / total size={Size}</value></data>
   <data name="InventorySummaryWithAdvice" xml:space="preserve"><value>{Label}: path={Path} / subdirectories={Dirs} / files={Files} / total size={Size}. Consider deleting or moving stale data when unnecessary files accumulate.</value></data>
-  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: Reconciliation reached the resource limit and will continue on the next run. Scanned={Scanned}, MaxFiles={MaxFiles}</value></data>
+  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: Reconciliation batch limit reached; the pass continues from this point on the next run. Scanned={Scanned}, MaxFiles={MaxFiles}, Reason={Reason}, ElapsedMs={ElapsedMs}</value></data>
+  <data name="ReconciliationPassCompleted" xml:space="preserve"><value>Rule {RuleId}: Reconciliation pass completed. Files={Files}, Batches={Batches}, DurationSec={DurationSec}</value></data>
   <data name="RuleApplied" xml:space="preserve"><value>Rule {RuleId} applied. Source path: {Path} / TargetMode: {TargetMode}</value></data>
   <data name="WriteAccessDeniedReason" xml:space="preserve"><value>access denied while writing.</value></data>
   <data name="WriteIoErrorReason" xml:space="preserve"><value>IO error while writing.</value></data>

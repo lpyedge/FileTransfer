@@ -149,7 +149,8 @@
   <data name="HealthStateUnhealthy" xml:space="preserve"><value>異常</value></data>
   <data name="InventorySummary" xml:space="preserve"><value>{Label}: 路徑={Path} / 子目錄={Dirs} / 檔案={Files} / 總大小={Size}</value></data>
   <data name="InventorySummaryWithAdvice" xml:space="preserve"><value>{Label}: 路徑={Path} / 子目錄={Dirs} / 檔案={Files} / 總大小={Size}。如果累積不必要資料，請考慮刪除或移至其他位置。</value></data>
-  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: 一致性檢查達到資源上限，將於下次繼續。Scanned={Scanned}, MaxFiles={MaxFiles}</value></data>
+  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: 一致性檢查達到批次上限，下次將從此位置繼續。Scanned={Scanned}, MaxFiles={MaxFiles}, Reason={Reason}, ElapsedMs={ElapsedMs}</value></data>
+  <data name="ReconciliationPassCompleted" xml:space="preserve"><value>Rule {RuleId}: 一致性檢查完整掃描完成。Files={Files}, Batches={Batches}, DurationSec={DurationSec}</value></data>
   <data name="RuleApplied" xml:space="preserve"><value>已套用 Rule {RuleId}。監控路徑：{Path} / TargetMode: {TargetMode}</value></data>
   <data name="WriteAccessDeniedReason" xml:space="preserve"><value>寫入時存取被拒。</value></data>
   <data name="WriteIoErrorReason" xml:space="preserve"><value>寫入時發生 IO 錯誤。</value></data>

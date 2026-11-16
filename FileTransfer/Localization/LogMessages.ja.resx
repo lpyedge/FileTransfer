@@ -149,7 +149,8 @@
   <data name="HealthStateUnhealthy" xml:space="preserve"><value>異常</value></data>
   <data name="InventorySummary" xml:space="preserve"><value>{Label}: パス={Path} / サブディレクトリ={Dirs} 件 / ファイル={Files} 件 / 合計サイズ={Size}</value></data>
   <data name="InventorySummaryWithAdvice" xml:space="preserve"><value>{Label}: パス={Path} / サブディレクトリ={Dirs} 件 / ファイル={Files} 件 / 合計サイズ={Size}。不要データが溜まっている場合は削除や退避をご検討ください。</value></data>
-  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: 整合性チェックはリソース上限に達したため次回に継続します。Scanned={Scanned}, MaxFiles={MaxFiles}</value></data>
+  <data name="ReconciliationResourceLimit" xml:space="preserve"><value>Rule {RuleId}: 整合性チェックのバッチ上限に達しました。次回はこの位置から継続します。Scanned={Scanned}, MaxFiles={MaxFiles}, Reason={Reason}, ElapsedMs={ElapsedMs}</value></data>
+  <data name="ReconciliationPassCompleted" xml:space="preserve"><value>Rule {RuleId}: 整合性チェックの全体走査が完了しました。Files={Files}, Batches={Batches}, DurationSec={DurationSec}</value></data>
   <data name="RuleApplied" xml:space="preserve"><value>Rule {RuleId} を適用しました。監視パス: {Path} / TargetMode: {TargetMode}</value></data>
   <data name="WriteAccessDeniedReason" xml:space="preserve"><value>書き込み時にアクセスが拒否されました。</value></data>
   <data name="WriteIoErrorReason" xml:space="preserve"><value>書き込み時に IO エラーが発生しました。</value></data>

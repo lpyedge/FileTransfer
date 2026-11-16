@@ -35,6 +35,9 @@ internal sealed class ReconciliationManager : IDisposable
     private long _lostEventsGeneration;
     private long _coveredGeneration;
     private long _passStartGeneration;
+    private DateTime _passStartedAt;
+    private long _passScanned;
+    private int _passBatches;
 
     public ReconciliationManager(
         ILogger logger,
@@ -211,13 +214,21 @@ internal sealed class ReconciliationManager : IDisposable
         if (resumeAfter is null)
         {
             _passStartGeneration = Interlocked.Read(ref _lostEventsGeneration);
+            _passStartedAt = DateTime.UtcNow;
+            _passScanned = 0;
+            _passBatches = 0;
         }
+
+        _passBatches++;
 
         string? lastFile = null;
         var enumerationCompleted = false;
+        var startedAt = DateTime.UtcNow;
+        var targetListings = new TargetDirectoryListingCache(_logger);
 
-        foreach (var file in EnumerateSourceFiles(settings, ct, () => enumerationCompleted = true))
+        foreach (var entry in EnumerateSourceFiles(settings, ct, () => enumerationCompleted = true))
         {
+            var file = entry.Path;
             if (ct.IsCancellationRequested)
             {
                 return;
@@ -234,17 +245,23 @@ internal sealed class ReconciliationManager : IDisposable
                 continue;
             }
 
-            if (++scanned > maxFiles || DateTime.UtcNow >= deadline)
+            var hitFileLimit = scanned >= maxFiles;
+            if (hitFileLimit || DateTime.UtcNow >= deadline)
             {
                 _resumeAfterPath = lastFile ?? _resumeAfterPath;
-                _logger.LogInformation(
+                // Not an error: the pass is split into batches and continues from this point.
+                _logger.LogDebug(
                     LogText.Get("ReconciliationResourceLimit"),
                     settings.RuleId,
-                    scanned - 1,
-                    maxFiles);
+                    scanned,
+                    maxFiles,
+                    hitFileLimit ? "MaxFiles" : "MaxDuration",
+                    (long)(DateTime.UtcNow - startedAt).TotalMilliseconds);
                 return;
             }
 
+            scanned++;
+            _passScanned++;
             lastFile = file;
 
             if (_initialScanSkipStateStore.IsSkipped(settings.RuntimeId, file))
@@ -257,14 +274,11 @@ internal sealed class ReconciliationManager : IDisposable
                 continue;
             }
 
-            if (!TryGetSourceStamp(settings, file, out var stamp))
-            {
-                continue;
-            }
-
+            // Length/timestamp come from the directory listing itself: no extra round trip per file.
+            var stamp = new SourceFileStamp(entry.Length, entry.LastWriteUtc);
             _observeSourceVersion(file, stamp, "Reconcile", ct);
 
-            if (ShouldQueueMissingCopy(settings, file, ct))
+            if (ShouldQueueMissingCopy(settings, file, stamp, targetListings, ct))
             {
                 _logger.LogInformation(LogText.Get("ReconciliationMismatchFound"), settings.RuleId, file);
                 _requestCopy(file, "Reconcile", ct);
@@ -289,6 +303,16 @@ internal sealed class ReconciliationManager : IDisposable
             return;
         }
 
+        if (_passBatches > 1)
+        {
+            _logger.LogInformation(
+                LogText.Get("ReconciliationPassCompleted"),
+                settings.RuleId,
+                _passScanned,
+                _passBatches,
+                (long)(DateTime.UtcNow - _passStartedAt).TotalSeconds);
+        }
+
         var covered = Interlocked.Read(ref _coveredGeneration);
         if (_passStartGeneration > covered)
         {
@@ -297,44 +321,13 @@ internal sealed class ReconciliationManager : IDisposable
         }
     }
 
-    private bool TryGetSourceStamp(SyncOptions settings, string file, out SourceFileStamp stamp)
+    private bool ShouldQueueMissingCopy(
+        SyncOptions settings,
+        string file,
+        SourceFileStamp source,
+        TargetDirectoryListingCache targetListings,
+        CancellationToken ct)
     {
-        stamp = default;
-        try
-        {
-            var info = new FileInfo(file);
-            if (!info.Exists)
-            {
-                return false;
-            }
-
-            stamp = new SourceFileStamp(info.Length, info.LastWriteTimeUtc);
-            return true;
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _logger.LogDebug(ex, LogText.Get("ReconciliationSourceInfoFailed"), settings.RuleId, file);
-            return false;
-        }
-    }
-
-    private bool ShouldQueueMissingCopy(SyncOptions settings, string file, CancellationToken ct)
-    {
-        FileInfo sourceInfo;
-        try
-        {
-            sourceInfo = new FileInfo(file);
-            if (!sourceInfo.Exists)
-            {
-                return false;
-            }
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            _logger.LogDebug(ex, LogText.Get("ReconciliationSourceInfoFailed"), settings.RuleId, file);
-            return false;
-        }
-
         var hasResolvableTarget = false;
         var currentInAnyTarget = false;
         var missingOrStaleHealthyTarget = false;
@@ -353,7 +346,7 @@ internal sealed class ReconciliationManager : IDisposable
 
             hasResolvableTarget = true;
             var canAttempt = _healthRegistry.CanAttempt(targetRoot, DateTimeOffset.UtcNow);
-            var current = IsTargetCurrent(sourceInfo, candidate, settings, ct);
+            var current = IsTargetCurrent(file, source, candidate, settings, targetListings, ct);
             currentInAnyTarget |= current;
 
             if (!current && canAttempt)
@@ -373,12 +366,24 @@ internal sealed class ReconciliationManager : IDisposable
             : missingOrStaleHealthyTarget;
     }
 
-    private bool IsTargetCurrent(FileInfo sourceInfo, string targetPath, SyncOptions settings, CancellationToken ct)
+    private bool IsTargetCurrent(
+        string sourcePath,
+        SourceFileStamp source,
+        string targetPath,
+        SyncOptions settings,
+        TargetDirectoryListingCache targetListings,
+        CancellationToken ct)
     {
         try
         {
-            var destInfo = new FileInfo(targetPath);
-            if (!destInfo.Exists || destInfo.Length != sourceInfo.Length || destInfo.LastWriteTimeUtc < sourceInfo.LastWriteTimeUtc)
+            if (!targetListings.TryGetStamp(targetPath, out var exists, out var dest))
+            {
+                var destInfo = new FileInfo(targetPath);
+                exists = destInfo.Exists;
+                dest = exists ? new SourceFileStamp(destInfo.Length, destInfo.LastWriteTimeUtc) : default;
+            }
+
+            if (!exists || dest.Length != source.Length || dest.LastWriteUtc < source.LastWriteUtc)
             {
                 return false;
             }
@@ -393,7 +398,7 @@ internal sealed class ReconciliationManager : IDisposable
                 return false;
             }
 
-            return string.Equals(ComputeHash(sourceInfo.FullName), ComputeHash(destInfo.FullName), StringComparison.OrdinalIgnoreCase);
+            return string.Equals(ComputeHash(sourcePath), ComputeHash(targetPath), StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -409,28 +414,38 @@ internal sealed class ReconciliationManager : IDisposable
         return Convert.ToHexString(sha.ComputeHash(stream)).ToLowerInvariant();
     }
 
-    private IEnumerable<string> EnumerateSourceFiles(SyncOptions settings, CancellationToken ct, Action onCompleted)
+    private readonly record struct SourceEntry(string Path, long Length, DateTime LastWriteUtc);
+
+    private static IEnumerable<SourceEntry> CreateSourceEnumerable(string root, bool recurse) =>
+        new System.IO.Enumeration.FileSystemEnumerable<SourceEntry>(
+            root,
+            static (ref System.IO.Enumeration.FileSystemEntry e) =>
+                new SourceEntry(e.ToFullPath(), e.Length, e.LastWriteTimeUtc.UtcDateTime),
+            new EnumerationOptions
+            {
+                RecurseSubdirectories = recurse,
+                IgnoreInaccessible = true,
+                ReturnSpecialDirectories = false,
+                AttributesToSkip = FileAttributes.ReparsePoint
+            })
+        {
+            ShouldIncludePredicate = static (ref System.IO.Enumeration.FileSystemEntry e) => !e.IsDirectory
+        };
+
+    private IEnumerable<SourceEntry> EnumerateSourceFiles(SyncOptions settings, CancellationToken ct, Action onCompleted)
     {
         if (!Directory.Exists(settings.SourceRoot))
         {
             yield break;
         }
 
-        var options = new EnumerationOptions
-        {
-            RecurseSubdirectories = settings.IncludeSubdirectories,
-            IgnoreInaccessible = true,
-            ReturnSpecialDirectories = false,
-            AttributesToSkip = FileAttributes.ReparsePoint
-        };
-
-        IEnumerator<string>? enumerator = null;
+        IEnumerator<SourceEntry>? enumerator = null;
         try
         {
-            enumerator = Directory.EnumerateFiles(settings.SourceRoot, "*", options).GetEnumerator();
+            enumerator = CreateSourceEnumerable(settings.SourceRoot, settings.IncludeSubdirectories).GetEnumerator();
             while (!ct.IsCancellationRequested)
             {
-                string file;
+                SourceEntry file;
                 try
                 {
                     if (!enumerator.MoveNext())
@@ -453,6 +468,79 @@ internal sealed class ReconciliationManager : IDisposable
         finally
         {
             enumerator?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Per-run cache of target directory listings. Checking N files in one target directory costs
+    /// one directory enumeration instead of N metadata round trips (significant on SMB shares).
+    /// Directories that are too large or fail to list fall back to per-file metadata reads.
+    /// </summary>
+    private sealed class TargetDirectoryListingCache
+    {
+        internal const int MaxEntriesPerDirectory = 200_000;
+
+        private readonly ILogger _logger;
+        private readonly Dictionary<string, Dictionary<string, SourceFileStamp>?> _directories = new(PathKeyComparer.Comparer);
+
+        public TargetDirectoryListingCache(ILogger logger)
+        {
+            _logger = logger;
+        }
+
+        public bool TryGetStamp(string targetPath, out bool exists, out SourceFileStamp stamp)
+        {
+            exists = false;
+            stamp = default;
+
+            var directory = Path.GetDirectoryName(targetPath);
+            if (string.IsNullOrEmpty(directory))
+            {
+                return false;
+            }
+
+            if (!_directories.TryGetValue(directory, out var listing))
+            {
+                listing = Load(directory);
+                _directories[directory] = listing;
+            }
+
+            if (listing is null)
+            {
+                return false;
+            }
+
+            exists = listing.TryGetValue(Path.GetFileName(targetPath), out stamp);
+            return true;
+        }
+
+        private Dictionary<string, SourceFileStamp>? Load(string directory)
+        {
+            try
+            {
+                var listing = new Dictionary<string, SourceFileStamp>(PathKeyComparer.Comparer);
+                if (!Directory.Exists(directory))
+                {
+                    return listing;
+                }
+
+                foreach (var entry in CreateSourceEnumerable(directory, recurse: false))
+                {
+                    if (listing.Count >= MaxEntriesPerDirectory)
+                    {
+                        return null;
+                    }
+
+                    listing[Path.GetFileName(entry.Path)] = new SourceFileStamp(entry.Length, entry.LastWriteUtc);
+                }
+
+                return listing;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                _logger.LogDebug(ex, "Could not list target directory {Directory}; falling back to per-file checks.", directory);
+                return null;
+            }
         }
     }
 
