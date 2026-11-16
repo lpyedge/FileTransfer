@@ -131,6 +131,10 @@
   <data name="WatcherRestarted" xml:space="preserve"><value>ファイル監視を再起動しました（試行 {Attempt} 回目）</value></data>
   <data name="WatcherSourceMissing" xml:space="preserve"><value>監視対象フォルダーが見つかりません: {Path}</value></data>
   <data name="WatcherStopFailed" xml:space="preserve"><value>ファイル監視の停止に失敗しました。</value></data>
+  <data name="WatcherBufferOverflow" xml:space="preserve"><value>ファイル監視のバッファがあふれ、一部の変更通知が失われました。監視は継続し、補完用の整合性チェックを要求しました。Source={SourceRoot}</value></data>
+  <data name="WatcherEventDispatchFailed" xml:space="preserve"><value>ファイル監視イベントの処理に失敗しました。Kind={Kind}, Path={Path}</value></data>
+  <data name="ReconciliationRequested" xml:space="preserve"><value>Rule {RuleId}: 変更通知が失われた可能性があります（{Reason}）。まもなく全体の補完整合性チェックを実行します。Generation={Generation}</value></data>
+  <data name="ReconciliationCatchUpCompleted" xml:space="preserve"><value>Rule {RuleId}: 補完整合性チェックが完了しました。</value></data>
   <data name="BytesUnit" xml:space="preserve"><value>バイト</value></data>
   <data name="CopyContext" xml:space="preserve"><value>転送処理</value></data>
   <data name="CopySucceededHealthReason" xml:space="preserve"><value>コピーが成功しました。</value></data>

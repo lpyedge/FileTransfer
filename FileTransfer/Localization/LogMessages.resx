@@ -131,6 +131,10 @@ Options:
   <data name="WatcherRestarted" xml:space="preserve"><value>File watcher restarted (attempt {Attempt}).</value></data>
   <data name="WatcherSourceMissing" xml:space="preserve"><value>Watched folder does not exist: {Path}</value></data>
   <data name="WatcherStopFailed" xml:space="preserve"><value>File watcher stop failed.</value></data>
+  <data name="WatcherBufferOverflow" xml:space="preserve"><value>File watcher buffer overflowed; some change notifications were dropped. The watcher keeps running and a catch-up reconciliation has been requested. Source={SourceRoot}</value></data>
+  <data name="WatcherEventDispatchFailed" xml:space="preserve"><value>Failed to process file watcher event. Kind={Kind}, Path={Path}</value></data>
+  <data name="ReconciliationRequested" xml:space="preserve"><value>Rule {RuleId}: Change notifications may have been lost ({Reason}). A full catch-up reconciliation pass will run shortly. Generation={Generation}</value></data>
+  <data name="ReconciliationCatchUpCompleted" xml:space="preserve"><value>Rule {RuleId}: Catch-up reconciliation pass completed.</value></data>
   <data name="BytesUnit" xml:space="preserve"><value>bytes</value></data>
   <data name="CopyContext" xml:space="preserve"><value>copy operation</value></data>
   <data name="CopySucceededHealthReason" xml:space="preserve"><value>copy succeeded.</value></data>

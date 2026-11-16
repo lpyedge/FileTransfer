@@ -79,6 +79,10 @@ rules:
 
     # Runtime resource controls.
     # copyBufferSize and hashBufferSize are intentionally separate from watcherInternalBufferSize.
+    # watcherInternalBufferSize: network shares (UNC / mapped drives) are capped at 65536 by SMB,
+    # larger values are clamped automatically. Local folders may use larger values (e.g. 262144).
+    # A buffer overflow only drops notifications; the watcher keeps running and a catch-up
+    # reconciliation pass is started immediately to transfer anything that was missed.
     maxParallelTransfers: 4
     copyBufferSize: 262144
     hashBufferSize: 262144

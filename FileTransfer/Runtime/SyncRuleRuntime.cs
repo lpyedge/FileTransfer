@@ -48,7 +48,9 @@ internal sealed class SyncRuleRuntime : IDisposable
             resolvedTargetPathStateStore,
             initialScanSkipStateStore);
 
-        _watchers = new FileWatcherManager(logger, () => Current.Options, OnChange, OnDelete);
+        // Lost watcher notifications (buffer overflow / watcher restart) are recovered by an
+        // immediate full reconciliation pass instead of waiting for the next interval.
+        _watchers = new FileWatcherManager(logger, () => Current.Options, OnChange, OnDelete, reason => _reconciliation?.RequestRun(reason));
 
         _reconciliation = new ReconciliationManager(
             logger,

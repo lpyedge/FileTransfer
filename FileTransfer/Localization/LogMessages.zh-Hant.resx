@@ -131,6 +131,10 @@
   <data name="WatcherRestarted" xml:space="preserve"><value>File watcher restarted (attempt {Attempt}).</value></data>
   <data name="WatcherSourceMissing" xml:space="preserve"><value>Watched folder does not exist: {Path}</value></data>
   <data name="WatcherStopFailed" xml:space="preserve"><value>File watcher stop failed.</value></data>
+  <data name="WatcherBufferOverflow" xml:space="preserve"><value>檔案監視緩衝區溢位，部分變更通知已遺失。監視將持續運作，並已要求補償一致性檢查。Source={SourceRoot}</value></data>
+  <data name="WatcherEventDispatchFailed" xml:space="preserve"><value>處理檔案監視事件失敗。Kind={Kind}, Path={Path}</value></data>
+  <data name="ReconciliationRequested" xml:space="preserve"><value>Rule {RuleId}: 變更通知可能已遺失（{Reason}）。即將執行完整的補償一致性檢查。Generation={Generation}</value></data>
+  <data name="ReconciliationCatchUpCompleted" xml:space="preserve"><value>Rule {RuleId}: 補償一致性檢查已完成。</value></data>
   <data name="BytesUnit" xml:space="preserve"><value>位元組</value></data>
   <data name="CopyContext" xml:space="preserve"><value>複製處理</value></data>
   <data name="CopySucceededHealthReason" xml:space="preserve"><value>複製成功。</value></data>
